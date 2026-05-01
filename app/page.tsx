@@ -537,6 +537,11 @@ export default function HomePage() {
             <p className="text-center text-xs text-[#c5c0bb] mt-6 leading-relaxed">
               5Cs only · no pics · mutual matches only 🤝
             </p>
+            <p className="text-center text-xs text-[#c5c0bb] mt-2">
+              <a href="/privacy" className="underline hover:text-[#9b9590]">Privacy</a>
+              {' · '}
+              <a href="/terms" className="underline hover:text-[#9b9590]">Terms</a>
+            </p>
           </>
         )}
       </div>
