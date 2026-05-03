@@ -588,10 +588,9 @@ function ErrorMsg({ children }: { children: React.ReactNode }) {
 function MapleIcon() {
   return (
     <img
-      src="/maple-leaf.png"
+      src="/maple-logo.svg"
       alt="Maple"
       className="w-16 h-16 object-contain"
-      style={{ mixBlendMode: 'multiply' }}
     />
   )
 }
