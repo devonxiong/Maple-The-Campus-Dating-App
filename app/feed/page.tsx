@@ -469,7 +469,7 @@ export default function FeedPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl leading-none">🍁</span>
+              <img src="/maple-logo.svg" alt="Maple" className="w-7 h-7 object-contain" />
               <h1 className="text-lg font-semibold text-[#111]">Maple</h1>
             </div>
             <p className="text-xs text-[#9b9590]">your crush is probably here 👀</p>
