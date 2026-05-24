@@ -22,6 +22,14 @@ function avatarColor(id: string) {
 }
 
 
+function nextFriday() {
+  const now = new Date()
+  const daysUntilFriday = (5 - now.getDay() + 7) % 7 || 7
+  const friday = new Date(now)
+  friday.setDate(now.getDate() + daysUntilFriday)
+  return friday.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) + ' · 7:00 PM'
+}
+
 const DEMO_STEPS = [
   'Match detected',
   'Fetching profiles',
@@ -107,15 +115,17 @@ export default function MatchPage() {
       elapsed += d
       timers.push(setTimeout(() => setSimulatedStep(i + 2), elapsed))
     })
-    // After all steps finish, inject the date card (if AI backend didn't respond)
+    // After all steps finish, inject the date card (if API didn't respond in time)
     timers.push(setTimeout(() => {
       setDateCard(dc => dc ?? {
-        time: 'Tomorrow 12:15 – 1:00 PM',
-        venue: 'Student Center Coffee Bar',
-        walk_minutes: 6,
-        shared_context: 'You\'re both on the same campus — easiest first step.',
-        reasoning: 'Lunch break is the overlap both schedules share. Coffee bar is low-key, no pressure.',
-        icebreaker: 'What\'s the most unexpectedly good thing you\'ve found on campus?',
+        time: nextFriday(),
+        venue: 'The Motley Coffeehouse',
+        address: '1030 Columbia Ave, Claremont, CA',
+        walk_minutes: 7,
+        maps_url: 'https://maps.google.com/?q=The+Motley+Coffeehouse+Claremont+CA',
+        shared_context: 'Iconic 5C coffee spot — low key, easy to find each other.',
+        reasoning: 'The Motley is the classic 5C meetup spot, right on Scripps campus.',
+        icebreaker: 'What\'s the most unexpectedly good thing you\'ve discovered around here?',
       })
     }, elapsed + 600))
     return () => timers.forEach(clearTimeout)
@@ -123,6 +133,15 @@ export default function MatchPage() {
 
   function handleArrange() {
     setScreen('loading')
+    // Trigger plan-date from match page too (in case feed page missed it)
+    const matchId = localStorage.getItem('anlan_match_id')
+    if (matchId) {
+      fetch('/api/plan-date', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId }),
+      }).catch(() => {})
+    }
   }
 
   function markMatchHandled(matchId: string) {
