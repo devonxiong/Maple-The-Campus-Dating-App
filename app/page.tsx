@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -60,6 +60,22 @@ export default function HomePage() {
   const [loginEmail, setLoginEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [darkMode, setDarkMode] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('maple_dark')
+    if (saved === 'true') {
+      document.documentElement.classList.add('dark')
+      setDarkMode(true)
+    }
+  }, [])
+
+  const toggleDark = useCallback(() => {
+    const next = !darkMode
+    setDarkMode(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('maple_dark', String(next))
+  }, [darkMode])
 
   // SMS OTP state
   const [pendingUserId, setPendingUserId] = useState('')
@@ -301,6 +317,17 @@ export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-5 py-16 bg-[#f8f7f4]">
       <div className="w-full max-w-[360px] animate-fade-up">
+
+        {/* Dark mode toggle */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={toggleDark}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#eeeae4] transition-colors"
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            <span className="text-base">{darkMode ? '☀️' : '🌙'}</span>
+          </button>
+        </div>
 
         {/* Logo */}
         <div className="mb-10 text-center">
