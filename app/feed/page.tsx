@@ -66,6 +66,23 @@ export default function FeedPage() {
   const [bellStatus, setBellStatus] = useState<BellStatus>('off')
   const [dailyCap, setDailyCap] = useState(false)
   const tokenClientRef = useRef<{ requestAccessToken: () => void } | null>(null)
+  const [darkMode, setDarkMode] = useState(false)
+
+  // Load dark mode preference
+  useEffect(() => {
+    const saved = localStorage.getItem('maple_dark')
+    if (saved === 'true') {
+      document.documentElement.classList.add('dark')
+      setDarkMode(true)
+    }
+  }, [])
+
+  function toggleDark() {
+    const next = !darkMode
+    setDarkMode(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('maple_dark', String(next))
+  }
 
   function showToast(msg: string) {
     setToast(msg)
@@ -475,6 +492,14 @@ export default function FeedPage() {
             <p className="text-xs text-[#9b9590]">your crush is probably here 👀</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggleDark}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#eeeae4] transition-colors"
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              <span className="text-base">{darkMode ? '☀️' : '🌙'}</span>
+            </button>
             {/* Bell icon — 3 states */}
             <button
               title={

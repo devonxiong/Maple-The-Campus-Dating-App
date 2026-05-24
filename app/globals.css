@@ -7,6 +7,19 @@
   --border: #e8e6e1;
   --muted: #9b9590;
   --accent: #111111;
+  --subtle: #eeeae4;
+  --subtle2: #f0ede8;
+}
+
+html.dark {
+  --background: #111111;
+  --foreground: #f0ede8;
+  --card: #1e1e1e;
+  --border: #2d2a26;
+  --muted: #6b6760;
+  --accent: #f0ede8;
+  --subtle: #1a1a1a;
+  --subtle2: #222222;
 }
 
 body {
@@ -15,6 +28,36 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ── Dark mode overrides ───────────────────────── */
+html.dark .bg-\[\#f8f7f4\]   { background-color: #111111 !important; }
+html.dark .bg-white           { background-color: #1e1e1e !important; }
+html.dark .bg-\[\#eeeae4\]   { background-color: #1a1a1a !important; }
+html.dark .bg-\[\#f0ede8\]   { background-color: #222222 !important; }
+html.dark .bg-\[\#f0fdf4\]   { background-color: #1a2a1a !important; }
+
+html.dark .text-\[\#111\]    { color: #f0ede8 !important; }
+html.dark .text-\[\#6b6760\] { color: #9b9590 !important; }
+html.dark .text-\[\#9b9590\] { color: #6b6760 !important; }
+html.dark .text-\[\#3d3a36\] { color: #c5c0bb !important; }
+
+html.dark .border-\[\#e8e6e1\] { border-color: #2d2a26 !important; }
+html.dark .border-\[\#111\]    { border-color: #f0ede8 !important; }
+
+html.dark .bg-\[\#111\]      { background-color: #f0ede8 !important; color: #111111 !important; }
+html.dark .text-white         { color: #111111 !important; }
+
+html.dark .hover\:bg-\[\#eeeae4\]:hover { background-color: #2a2a2a !important; }
+
+html.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+html.dark .shadow-lg { box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important; }
+
+/* Toast in dark mode */
+html.dark .bg-\[\#111\].text-white {
+  background-color: #f0ede8 !important;
+  color: #111111 !important;
 }
 
 html, body {
