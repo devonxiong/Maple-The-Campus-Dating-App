@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import SpotPicker from './components/SpotPicker'
 
 // ─── Allowed Claremont Colleges domains ──────────────────────────────────────
 const ALLOWED_DOMAINS = [
@@ -45,8 +46,6 @@ type Step = 'email' | 'phone' | 'otp' | 'name' | 'gender' | 'year' | 'into' | 'g
 const PROFILE_STEPS: Step[] = ['name', 'gender', 'year', 'into', 'geo', 'password']
 const ORDER: Step[] = ['email', 'phone', 'otp', 'name', 'gender', 'year', 'into', 'geo', 'password']
 
-const SPOT_SUGGESTIONS = ['Honnold Library', 'Roberts Pavilion', 'Collins Dining', 'The Hub', 'Frary Dining']
-
 export default function HomePage() {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('signup')
@@ -59,7 +58,6 @@ export default function HomePage() {
     name: '', gender: '', want_to_date: [], year: '',
   })
   const [spots, setSpots] = useState<string[]>([])
-  const [spotInput, setSpotInput] = useState('')
 
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
@@ -284,7 +282,6 @@ export default function HomePage() {
     const s = raw.trim()
     if (!s) return
     setSpots(prev => (prev.length >= 5 || prev.some(x => x.toLowerCase() === s.toLowerCase())) ? prev : [...prev, s])
-    setSpotInput('')
   }
   function removeSpot(s: string) { setSpots(prev => prev.filter(x => x !== s)) }
 
@@ -655,32 +652,8 @@ export default function HomePage() {
         {/* Step: geo */}
         {mode === 'signup' && step === 'geo' && (
           <div className="animate-fade-in">
-            <StepTitle emoji="📍" title="Where do you usually show up?" sub="Maple matches you with people who move through campus the way you do. Add up to 5." />
-            {spots.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {spots.map(s => (
-                  <button key={s} onClick={() => removeSpot(s)} className="flex items-center gap-1 bg-[#f1efea] text-[#111] text-xs font-medium rounded-full pl-3 pr-2 py-1.5 hover:bg-[#e8e6e1] transition-colors">
-                    {s} <span className="text-[#9b9590]">×</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {spots.length < 5 && (
-              <div className="flex gap-2">
-                <input
-                  type="text" value={spotInput} placeholder="e.g. Honnold Library, Roberts gym…"
-                  onChange={(e) => setSpotInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSpot(spotInput) } }}
-                  className={inputCls}
-                />
-                <button onClick={() => addSpot(spotInput)} disabled={!spotInput.trim()} className="px-4 rounded-xl bg-[#111] text-white text-sm font-medium disabled:opacity-30 active:scale-95 transition-all">add</button>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {SPOT_SUGGESTIONS.filter(s => !spots.some(x => x.toLowerCase() === s.toLowerCase())).map(s => (
-                <button key={s} onClick={() => addSpot(s)} disabled={spots.length >= 5} className="text-xs text-[#6b6760] border border-dashed border-[#d8d4ce] rounded-full px-3 py-1.5 hover:border-[#111] hover:text-[#111] disabled:opacity-40 transition-colors">+ {s}</button>
-              ))}
-            </div>
+            <StepTitle emoji="📍" title="Where do you usually show up?" sub="Drop a pin on the spots you frequent. Maple matches you with people who move through campus the way you do." />
+            <SpotPicker spots={spots} onAdd={addSpot} onRemove={removeSpot} />
             <ContinueBtn onClick={goNext} disabled={false} label={spots.length === 0 ? 'skip for now →' : 'continue →'} />
           </div>
         )}
