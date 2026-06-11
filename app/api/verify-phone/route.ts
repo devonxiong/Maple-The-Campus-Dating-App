@@ -15,11 +15,13 @@ function getTwilio() {
   return { client: twilio(sid, token), verifySid }
 }
 
-// POST /api/verify-phone — send SMS OTP
+// POST /api/verify-phone — send SMS OTP.
+// userId is optional: in the new onboarding the account doesn't exist yet,
+// so we verify the phone on its own (Twilio Verify is keyed by phone number).
 export async function POST(req: NextRequest) {
-  const { userId, phone } = await req.json()
-  if (!userId || !phone) {
-    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+  const { phone } = await req.json()
+  if (!phone) {
+    return NextResponse.json({ error: 'Missing phone' }, { status: 400 })
   }
 
   const tw = getTwilio()
@@ -38,10 +40,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT /api/verify-phone — confirm OTP code
+// PUT /api/verify-phone — confirm OTP code.
+// userId optional: if provided (legacy flow) we flip email_verified; otherwise
+// we just confirm the code and let the caller create the account afterward.
 export async function PUT(req: NextRequest) {
   const { userId, phone, code } = await req.json()
-  if (!userId || !phone || !code) {
+  if (!phone || !code) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
@@ -59,18 +63,20 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Wrong code' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('users')
-      .update({ email_verified: true })
-      .eq('id', userId)
-      .select('id, name')
-      .single()
-
-    if (error || !data) {
-      return NextResponse.json({ error: 'DB error' }, { status: 500 })
+    if (userId) {
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .update({ email_verified: true })
+        .eq('id', userId)
+        .select('id, name')
+        .single()
+      if (error || !data) {
+        return NextResponse.json({ error: 'DB error' }, { status: 500 })
+      }
+      return NextResponse.json({ success: true, name: data.name })
     }
 
-    return NextResponse.json({ success: true, name: data.name })
+    return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[verify-phone] Twilio check error:', err)
     return NextResponse.json({ error: 'Wrong code' }, { status: 400 })

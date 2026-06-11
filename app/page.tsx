@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 
 // ─── Allowed Claremont Colleges domains ──────────────────────────────────────
 const ALLOWED_DOMAINS = [
@@ -16,11 +15,6 @@ const ALLOWED_DOMAINS = [
   'cmc.edu',
   'g.hmc.edu',
 ]
-
-// Google Workspace schools (use Google OAuth)
-const GOOGLE_DOMAINS = ['pitzer.edu', 'students.pitzer.edu', 'g.hmc.edu']
-// Microsoft/Outlook schools
-const MICROSOFT_DOMAINS = ['mymail.pomona.edu', 'scrippscollege.edu', 'claremontmckenna.edu', 'cmc.edu']
 
 function isAllowedEmail(email: string) {
   const domain = email.split('@')[1]?.toLowerCase()
@@ -44,25 +38,45 @@ declare global {
 }
 
 type Mode = 'signup' | 'login'
+// Onboarding is a one-screen-at-a-time wizard.
+type Step = 'email' | 'phone' | 'otp' | 'name' | 'gender' | 'year' | 'into' | 'geo' | 'password'
+
+// Profile steps that show the progress dots (after verification).
+const PROFILE_STEPS: Step[] = ['name', 'gender', 'year', 'into', 'geo', 'password']
+const ORDER: Step[] = ['email', 'phone', 'otp', 'name', 'gender', 'year', 'into', 'geo', 'password']
+
+const SPOT_SUGGESTIONS = ['Honnold Library', 'Roberts Pavilion', 'Collins Dining', 'The Hub', 'Frary Dining']
 
 export default function HomePage() {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('signup')
+  const [step, setStep] = useState<Step>('email')
+
   const [verifiedEmail, setVerifiedEmail] = useState('')
   const [emailVerifying, setEmailVerifying] = useState(false)
-  const [form, setForm] = useState<{
-    name: string; gender: string; want_to_date: string[]
-    phone: string; schedule_text: string; campus: string
-  }>({
-    name: '', gender: '', want_to_date: [],
-    phone: '', schedule_text: '', campus: 'Main Campus',
+
+  const [form, setForm] = useState<{ name: string; gender: string; want_to_date: string[]; year: string }>({
+    name: '', gender: '', want_to_date: [], year: '',
   })
+  const [spots, setSpots] = useState<string[]>([])
+  const [spotInput, setSpotInput] = useState('')
+
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState('')
+  const [otpError, setOtpError] = useState('')
+
+  const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
+
   const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [darkMode, setDarkMode] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
   const [splashLeaving, setSplashLeaving] = useState(false)
+  const [showIntro, setShowIntro] = useState(false)
   const touchStartY = useRef(0)
 
   useEffect(() => {
@@ -80,27 +94,18 @@ export default function HomePage() {
     localStorage.setItem('maple_dark', String(next))
   }, [darkMode])
 
-  // SMS OTP state
-  const [pendingUserId, setPendingUserId] = useState('')
-  const [pendingPhone, setPendingPhone] = useState('')
-  const [pendingName, setPendingName] = useState('')
-  const [otp, setOtp] = useState('')
-  const [otpLoading, setOtpLoading] = useState(false)
-  const [otpError, setOtpError] = useState('')
-
-  function set(key: string, value: string) {
+  function set(key: 'name' | 'gender' | 'year', value: string) {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
   function switchMode(m: Mode) {
     setMode(m)
     setError('')
-    setPendingUserId('')
-    setOtp('')
+    setStep('email')
     setVerifiedEmail('')
   }
 
-  // Load Google Identity Services
+  // ─── OAuth: load Google Identity Services ──────────────────────────────────
   useEffect(() => {
     if (document.getElementById('gis-script')) return
     const script = document.createElement('script')
@@ -143,7 +148,6 @@ export default function HomePage() {
         const token = tokenData.access_token
         if (!token) { setError('Microsoft sign-in failed. Try again.'); return }
 
-        // 1. Verify school email
         const meRes = await fetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName', {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -156,6 +160,7 @@ export default function HomePage() {
 
         setVerifiedEmail(email)
         setMode('signup')
+        setStep('phone')
       } catch {
         setError('Microsoft sign-in failed. Try again.')
       } finally {
@@ -193,6 +198,7 @@ export default function HomePage() {
             return
           }
           setVerifiedEmail(email)
+          setStep('phone')
         } catch {
           setError('Google sign-in failed. Try again.')
         } finally {
@@ -207,7 +213,6 @@ export default function HomePage() {
     const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     if (!clientId) { setError('Microsoft not configured'); return }
 
-    // PKCE
     const verifier = Array.from(crypto.getRandomValues(new Uint8Array(64)))
       .map(b => b.toString(16).padStart(2, '0')).join('')
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
@@ -228,104 +233,136 @@ export default function HomePage() {
     window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`
   }
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    if (!loginEmail) { setError('Please enter your email'); return }
-    setLoading(true)
-    try {
-      const { data, error: dbError } = await supabase
-        .from('users').select('id, name, email_verified').eq('email', loginEmail.toLowerCase()).single()
-      if (dbError || !data) { setError("We couldn't find that email. Sign up first."); return }
-      if (!data.email_verified) { setError('Please finish verifying your phone number first.'); return }
-      localStorage.setItem('anlan_user_id', data.id)
-      localStorage.setItem('anlan_user_name', data.name)
-      router.push('/feed')
-    } catch { setError('Network error. Check your connection.') }
-    finally { setLoading(false) }
-  }
+  // ─── Phone verification ────────────────────────────────────────────────────
+  function phoneDigits() { return phone.replace(/\D/g, '') }
 
-  async function handleSignup(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    if (!verifiedEmail) { setError('Verify your school email first'); return }
-    if (!form.name || !form.gender || form.want_to_date.length === 0 || !form.phone) {
-      setError('Please fill in all required fields')
-      return
-    }
-    const digits = form.phone.replace(/\D/g, '')
-    if (digits.length !== 10) {
-      setError('Please enter a valid 10-digit US phone number')
-      return
-    }
+  async function sendPhoneOtp() {
+    setError(''); setOtpError('')
+    if (phoneDigits().length !== 10) { setError('Enter a valid 10-digit US phone number'); return }
     setLoading(true)
-    const fullPhone = '+1' + digits
     try {
-      const { data, error: dbError } = await supabase
-        .from('users')
-        .insert({
-          name: form.name, email: verifiedEmail, gender: form.gender,
-          want_to_date: form.want_to_date, phone: fullPhone,
-          schedule_text: form.schedule_text || null, campus: form.campus,
-          email_verified: false,
-        })
-        .select('id').single()
-      if (dbError) {
-        if (dbError.code === '23505') setError('This email is already registered. Log in instead.')
-        else setError('Sign up failed. Try again.')
-        return
-      }
       const res = await fetch('/api/verify-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: data.id, phone: fullPhone }),
+        body: JSON.stringify({ phone: '+1' + phoneDigits() }),
       })
-      if (!res.ok) { setError('Failed to send SMS. Check your phone number.'); return }
-      setPendingUserId(data.id)
-      setPendingPhone(fullPhone)
-      setPendingName(form.name)
-    } catch { setError('Network error. Check your connection.') }
+      if (!res.ok) { setError('Failed to send code. Check your number.'); return }
+      setOtp('')
+      setStep('otp')
+    } catch { setError('Network error. Try again.') }
     finally { setLoading(false) }
   }
 
-  async function handleOtpSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function verifyOtp() {
     setOtpError('')
     if (otp.length !== 6) { setOtpError('Enter the 6-digit code we texted you'); return }
-    setOtpLoading(true)
+    setLoading(true)
     try {
       const res = await fetch('/api/verify-phone', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: pendingUserId, phone: pendingPhone, code: otp }),
+        body: JSON.stringify({ phone: '+1' + phoneDigits(), code: otp }),
       })
-      const json = await res.json()
       if (!res.ok) { setOtpError('Wrong code — try again'); return }
-      localStorage.setItem('anlan_user_id', pendingUserId)
-      localStorage.setItem('anlan_user_name', json.name ?? pendingName)
-      router.push('/profile?setup=1')
+      setStep('name')
     } catch { setOtpError('Network error. Try again.') }
-    finally { setOtpLoading(false) }
+    finally { setLoading(false) }
   }
 
-  async function resendSms() {
+  async function resendOtp() {
     setOtpError('')
     const res = await fetch('/api/verify-phone', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: pendingUserId, phone: pendingPhone }),
+      body: JSON.stringify({ phone: '+1' + phoneDigits() }),
     })
-    if (res.ok) setOtpError('New code sent ✓')
-    else setOtpError('Failed to resend. Try again.')
+    setOtpError(res.ok ? 'New code sent ✓' : 'Failed to resend. Try again.')
   }
+
+  // ─── Spots (geolocation) ───────────────────────────────────────────────────
+  function addSpot(raw: string) {
+    const s = raw.trim()
+    if (!s) return
+    setSpots(prev => (prev.length >= 5 || prev.some(x => x.toLowerCase() === s.toLowerCase())) ? prev : [...prev, s])
+    setSpotInput('')
+  }
+  function removeSpot(s: string) { setSpots(prev => prev.filter(x => x !== s)) }
+
+  // ─── Final account creation ────────────────────────────────────────────────
+  async function finishSignup() {
+    setError('')
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (password !== password2) { setError('Passwords do not match'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: verifiedEmail,
+          phone: '+1' + phoneDigits(),
+          name: form.name,
+          gender: form.gender,
+          want_to_date: form.want_to_date,
+          year: form.year,
+          top_spots: spots,
+          password,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Sign up failed. Try again.'); return }
+      localStorage.setItem('anlan_user_id', json.id)
+      localStorage.setItem('anlan_user_name', json.name)
+      router.push('/profile?setup=1')
+    } catch { setError('Network error. Try again.') }
+    finally { setLoading(false) }
+  }
+
+  // ─── Login (Welcome back) ──────────────────────────────────────────────────
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    if (!loginEmail || !loginPassword) { setError('Enter your email and password'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Login failed'); return }
+      localStorage.setItem('anlan_user_id', json.id)
+      localStorage.setItem('anlan_user_name', json.name)
+      router.push('/feed')
+    } catch { setError('Network error. Try again.') }
+    finally { setLoading(false) }
+  }
+
+  // ─── Wizard navigation ─────────────────────────────────────────────────────
+  function goNext() {
+    const i = ORDER.indexOf(step)
+    if (i < ORDER.length - 1) setStep(ORDER[i + 1])
+  }
+  function goBack() {
+    setError(''); setOtpError('')
+    const i = ORDER.indexOf(step)
+    if (i > 0) setStep(ORDER[i - 1])
+  }
+  const canContinue =
+    step === 'name' ? !!form.name.trim()
+    : step === 'gender' ? !!form.gender
+    : step === 'year' ? !!form.year
+    : step === 'into' ? form.want_to_date.length > 0
+    : true
 
   function dismissSplash() {
     if (!showSplash) return
     setSplashLeaving(true)
-    setTimeout(() => setShowSplash(false), 400)
+    setTimeout(() => { setShowSplash(false); setShowIntro(true) }, 400)
   }
 
-  // Splash screen
+  // ─── Splash ────────────────────────────────────────────────────────────────
   if (showSplash) {
     return (
       <main
@@ -348,6 +385,42 @@ export default function HomePage() {
     )
   }
 
+  // ─── Intro ─────────────────────────────────────────────────────────────────
+  if (showIntro) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[#f8f7f4] select-none">
+        <div className="w-full max-w-[380px] animate-fade-up flex flex-col items-center text-center">
+          <img src="/maple-logo.svg" alt="Maple" className="w-14 h-14 object-contain mb-6" />
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#111] mb-4 leading-snug">
+            Dating built around<br />where you already are.
+          </h1>
+          <p className="text-[15px] text-[#6b6760] leading-relaxed mb-9">
+            The hardest part of campus dating isn&apos;t wanting it — it&apos;s making a
+            move on the person you keep crossing paths with. The lecture-hall crush.
+            The one always at the gym when you are. Maple uses{' '}
+            <span className="text-[#111] font-medium">geo-matching</span> to quietly
+            connect you with the people already moving through campus the way you do —
+            then helps you go from first hello to a real Friday-night date.
+          </p>
+          <div className="w-full space-y-3.5 mb-10 text-left">
+            <IntroPoint icon="📍" title="Geo-matching" desc="Matched by the places you both keep showing up." />
+            <IntroPoint icon="🔒" title="Real students only" desc="Verified school emails — your campus, no strangers." />
+            <IntroPoint icon="✨" title="AI that helps you act" desc="From the icebreaker to a date that actually happens." />
+          </div>
+          <button
+            onClick={() => setShowIntro(false)}
+            className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium active:scale-[0.98] transition-transform"
+          >
+            Get started →
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  const profileIdx = PROFILE_STEPS.indexOf(step)
+  const showHeader = mode === 'signup' && step !== 'email'
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-5 py-16 bg-[#f8f7f4]">
       <div className="w-full max-w-[360px] animate-fade-up">
@@ -364,248 +437,285 @@ export default function HomePage() {
         </div>
 
         {/* Logo */}
-        <div className="mb-10 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
-            <MapleIcon />
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 mb-3">
+            <img src="/maple-logo.svg" alt="Maple" className="w-14 h-14 object-contain" />
           </div>
-          <h1 className="text-[26px] font-semibold tracking-tight text-[#111]">Maple</h1>
-          <p className="text-sm text-[#9b9590] mt-1">For the one you've seen a thousand times.</p>
+          <h1 className="text-[24px] font-semibold tracking-tight text-[#111]">Maple</h1>
+          <p className="text-sm text-[#9b9590] mt-1">For the one you&apos;ve seen a thousand times.</p>
         </div>
 
-        {/* SMS OTP screen */}
-        {pendingUserId && (
-          <div className="animate-fade-in">
-            <div className="text-center mb-6">
-              <div className="text-4xl mb-3">📱</div>
-              <h2 className="text-lg font-semibold text-[#111] mb-1">check your texts</h2>
-              <p className="text-sm text-[#9b9590] leading-relaxed">
-                we texted a 6-digit code to<br />
-                <span className="font-medium text-[#6b6760]">{pendingPhone}</span>
-              </p>
-            </div>
-            <form onSubmit={handleOtpSubmit} className="space-y-3">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="_ _ _ _ _ _"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                autoFocus
-                className="w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-4 text-2xl text-center font-semibold tracking-[0.4em] text-[#111] placeholder:text-[#ddd] focus:outline-none focus:border-[#111] transition-colors"
-              />
-              {otpError && (
-                <p className={`text-sm text-center py-1 ${otpError.includes('✓') ? 'text-emerald-500' : 'text-red-500'}`}>
-                  {otpError}
-                </p>
-              )}
+        {/* Wizard header: back arrow + progress dots */}
+        {showHeader && (
+          <div className="flex items-center justify-between mb-6 h-5">
+            <button onClick={goBack} className="text-sm text-[#9b9590] hover:text-[#111] transition-colors">← back</button>
+            {profileIdx >= 0 && (
+              <div className="flex gap-1.5">
+                {PROFILE_STEPS.map((s, i) => (
+                  <span key={s} className={`h-1.5 rounded-full transition-all ${i === profileIdx ? 'w-5 bg-[#111]' : i < profileIdx ? 'w-1.5 bg-[#111]' : 'w-1.5 bg-[#d8d4ce]'}`} />
+                ))}
+              </div>
+            )}
+            <span className="w-9" />
+          </div>
+        )}
+
+        {/* Mode tabs — only at the very entry */}
+        {step === 'email' && (
+          <div className="flex bg-[#eeeae4] rounded-xl p-1 mb-6">
+            {(['signup', 'login'] as Mode[]).map((m) => (
               <button
-                type="submit"
-                disabled={otpLoading || otp.length !== 6}
-                className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
+                key={m}
+                onClick={() => switchMode(m)}
+                className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${mode === m ? 'bg-white text-[#111] shadow-sm' : 'text-[#9b9590]'}`}
               >
-                {otpLoading ? 'Verifying...' : 'verify →'}
+                {m === 'signup' ? "I'm new here" : 'Welcome back'}
               </button>
-            </form>
+            ))}
+          </div>
+        )}
+
+        {/* ─── LOGIN ─────────────────────────────────────────────── */}
+        {mode === 'login' && (
+          <form onSubmit={handleLogin} className="space-y-3 animate-fade-in">
+            <Field label="Email">
+              <input
+                type="email" placeholder="your@email.com" value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)} autoFocus className={inputCls}
+              />
+            </Field>
+            <Field label="Password">
+              <input
+                type="password" placeholder="••••••••" value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)} className={inputCls}
+              />
+            </Field>
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+            <Btn loading={loading} label="let me in →" />
+          </form>
+        )}
+
+        {/* ─── SIGNUP WIZARD ─────────────────────────────────────── */}
+        {mode === 'signup' && step === 'email' && (
+          <div className="space-y-3 animate-fade-in">
+            <p className="text-xs font-medium text-[#6b6760] mb-1">verify your school email</p>
+            <button
+              type="button" onClick={signInWithGoogle} disabled={emailVerifying}
+              className="w-full flex items-center gap-3 bg-white border border-[#e8e6e1] rounded-xl px-4 py-3.5 hover:border-[#111] transition-colors disabled:opacity-50"
+            >
+              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <div className="text-left min-w-0">
+                <p className="text-sm font-medium text-[#111]">Continue with Google</p>
+                <p className="text-xs text-[#9b9590]">Pitzer · HMC</p>
+              </div>
+              {emailVerifying && <div className="ml-auto w-4 h-4 rounded-full border border-[#9b9590] border-t-transparent animate-spin shrink-0" />}
+            </button>
+            <button
+              type="button" onClick={signInWithMicrosoft} disabled={emailVerifying}
+              className="w-full flex items-center gap-3 bg-white border border-[#e8e6e1] rounded-xl px-4 py-3.5 hover:border-[#111] transition-colors disabled:opacity-50"
+            >
+              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                <path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#00A4EF" d="M13 1h10v10H13z"/>
+                <path fill="#7FBA00" d="M1 13h10v10H1z"/><path fill="#FFB900" d="M13 13h10v10H13z"/>
+              </svg>
+              <div className="text-left min-w-0">
+                <p className="text-sm font-medium text-[#111]">Continue with Microsoft</p>
+                <p className="text-xs text-[#9b9590]">Pomona · Scripps · CMC (Outlook)</p>
+              </div>
+            </button>
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+            <p className="text-center text-xs text-[#c5c0bb] pt-1">we only let in real 5C students 🔒</p>
+          </div>
+        )}
+
+        {/* Step: phone */}
+        {mode === 'signup' && step === 'phone' && (
+          <div className="animate-fade-in">
+            <VerifiedBadge email={verifiedEmail} />
+            <StepTitle emoji="📱" title="What's your number?" sub="We text a quick code to confirm it's you. No spam, ever." />
+            <div className="flex items-center bg-white border border-[#e8e6e1] rounded-xl overflow-hidden focus-within:border-[#111] transition-colors">
+              <div className="flex items-center gap-1.5 px-3 py-3 border-r border-[#e8e6e1] shrink-0 select-none">
+                <span className="text-base leading-none">🇺🇸</span>
+                <span className="text-sm text-[#6b6760] font-medium">+1</span>
+              </div>
+              <input
+                type="tel" placeholder="(555) 000-0000" value={phone} autoFocus
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+                  let f = digits
+                  if (digits.length >= 7) f = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
+                  else if (digits.length >= 4) f = `(${digits.slice(0,3)}) ${digits.slice(3)}`
+                  else if (digits.length >= 1) f = `(${digits}`
+                  setPhone(f)
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && phoneDigits().length === 10) sendPhoneOtp() }}
+                className="flex-1 px-3 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none bg-transparent"
+              />
+            </div>
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+            <button
+              onClick={sendPhoneOtp} disabled={loading || phoneDigits().length !== 10}
+              className="w-full mt-4 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
+            >
+              {loading ? 'Sending...' : 'text me a code →'}
+            </button>
+          </div>
+        )}
+
+        {/* Step: otp */}
+        {mode === 'signup' && step === 'otp' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="✉️" title="Check your texts" sub={`We texted a 6-digit code to +1 ${phone}`} />
+            <input
+              type="text" inputMode="numeric" placeholder="_ _ _ _ _ _" maxLength={6} value={otp} autoFocus
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={(e) => { if (e.key === 'Enter' && otp.length === 6) verifyOtp() }}
+              className="w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-4 text-2xl text-center font-semibold tracking-[0.4em] text-[#111] placeholder:text-[#ddd] focus:outline-none focus:border-[#111] transition-colors"
+            />
+            {otpError && <p className={`text-sm text-center py-1 ${otpError.includes('✓') ? 'text-emerald-500' : 'text-red-500'}`}>{otpError}</p>}
+            <button
+              onClick={verifyOtp} disabled={loading || otp.length !== 6}
+              className="w-full mt-3 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
+            >
+              {loading ? 'Verifying...' : 'verify →'}
+            </button>
             <p className="text-center text-xs text-[#c5c0bb] mt-4">
-              didn&apos;t get it?{' '}
-              <button onClick={resendSms} className="underline hover:text-[#9b9590]">resend</button>
+              didn&apos;t get it? <button onClick={resendOtp} className="underline hover:text-[#9b9590]">resend</button>
             </p>
           </div>
         )}
 
-        {/* Tab switcher + forms */}
-        {!pendingUserId && (
-          <>
-            <div className="flex bg-[#eeeae4] rounded-xl p-1 mb-6">
-              {(['signup', 'login'] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => switchMode(m)}
-                  className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
-                    mode === m ? 'bg-white text-[#111] shadow-sm' : 'text-[#9b9590]'
-                  }`}
-                >
-                  {m === 'signup' ? 'I\'m new here' : 'Welcome back'}
-                </button>
+        {/* Step: name */}
+        {mode === 'signup' && step === 'name' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="👋" title="What do people call you?" sub="First name or nickname — whatever feels like you." />
+            <input
+              type="text" placeholder="your name" value={form.name} autoFocus
+              onChange={(e) => set('name', e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) goNext() }}
+              className={inputCls}
+            />
+            <ContinueBtn onClick={goNext} disabled={!canContinue} />
+          </div>
+        )}
+
+        {/* Step: gender */}
+        {mode === 'signup' && step === 'gender' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="🧬" title="I am…" />
+            <div className="space-y-2">
+              {['Man', 'Woman', 'Non-binary'].map((g) => (
+                <Choice key={g} active={form.gender === g} onClick={() => set('gender', g)} label={g} />
               ))}
             </div>
+            <ContinueBtn onClick={goNext} disabled={!canContinue} />
+          </div>
+        )}
 
-            {/* Login */}
-            {mode === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-3 animate-fade-in">
-                <Field label="Email">
-                  <input
-                    type="email" placeholder="your@email.com" value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)} autoFocus
-                    className={inputCls}
-                  />
-                </Field>
-                {error && <ErrorMsg>{error}</ErrorMsg>}
-                <Btn loading={loading} label="let me in →" />
-              </form>
-            )}
+        {/* Step: year */}
+        {mode === 'signup' && step === 'year' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="🎓" title="What year are you?" />
+            <div className="space-y-2">
+              {['First-year', 'Sophomore', 'Junior', 'Senior', 'Grad'].map((y) => (
+                <Choice key={y} active={form.year === y} onClick={() => set('year', y)} label={y} />
+              ))}
+            </div>
+            <ContinueBtn onClick={goNext} disabled={!canContinue} />
+          </div>
+        )}
 
-            {/* Signup */}
-            {mode === 'signup' && (
-              <div className="space-y-3 animate-fade-in">
+        {/* Step: into */}
+        {mode === 'signup' && step === 'into' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="💘" title="Who are you into?" sub="Pick all that apply." />
+            <div className="space-y-2">
+              {['Men', 'Women', 'Non-binary'].map((g) => (
+                <Choice
+                  key={g}
+                  active={form.want_to_date.includes(g)}
+                  onClick={() => setForm(f => ({
+                    ...f,
+                    want_to_date: f.want_to_date.includes(g) ? f.want_to_date.filter(x => x !== g) : [...f.want_to_date, g],
+                  }))}
+                  label={g}
+                  multi
+                />
+              ))}
+            </div>
+            <ContinueBtn onClick={goNext} disabled={!canContinue} />
+          </div>
+        )}
 
-                {/* Step 1: Verify school email */}
-                {!verifiedEmail ? (
-                  <div className="space-y-3">
-                    <p className="text-xs font-medium text-[#6b6760] mb-1">verify your school email</p>
-
-                    {/* Google schools */}
-                    <button
-                      type="button"
-                      onClick={signInWithGoogle}
-                      disabled={emailVerifying}
-                      className="w-full flex items-center gap-3 bg-white border border-[#e8e6e1] rounded-xl px-4 py-3.5 hover:border-[#111] transition-colors disabled:opacity-50"
-                    >
-                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                      </svg>
-                      <div className="text-left min-w-0">
-                        <p className="text-sm font-medium text-[#111]">Continue with Google</p>
-                        <p className="text-xs text-[#9b9590]">Pitzer · HMC</p>
-                      </div>
-                      {emailVerifying && <div className="ml-auto w-4 h-4 rounded-full border border-[#9b9590] border-t-transparent animate-spin shrink-0" />}
-                    </button>
-
-                    {/* Microsoft schools */}
-                    <button
-                      type="button"
-                      onClick={signInWithMicrosoft}
-                      disabled={emailVerifying}
-                      className="w-full flex items-center gap-3 bg-white border border-[#e8e6e1] rounded-xl px-4 py-3.5 hover:border-[#111] transition-colors disabled:opacity-50"
-                    >
-                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                        <path fill="#F25022" d="M1 1h10v10H1z"/>
-                        <path fill="#00A4EF" d="M13 1h10v10H13z"/>
-                        <path fill="#7FBA00" d="M1 13h10v10H1z"/>
-                        <path fill="#FFB900" d="M13 13h10v10H13z"/>
-                      </svg>
-                      <div className="text-left min-w-0">
-                        <p className="text-sm font-medium text-[#111]">Continue with Microsoft</p>
-                        <p className="text-xs text-[#9b9590]">Pomona · Scripps · CMC (Outlook)</p>
-                      </div>
-                    </button>
-
-                    {error && <ErrorMsg>{error}</ErrorMsg>}
-                    <p className="text-center text-xs text-[#c5c0bb] pt-1">
-                      we only let in real 5C students 🔒
-                    </p>
-                  </div>
-                ) : (
-                  /* Step 2: Fill in profile */
-                  <form onSubmit={handleSignup} className="space-y-3">
-                    {/* Verified email badge */}
-                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                      <span className="text-emerald-500 text-base">✓</span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-emerald-700">school email verified</p>
-                        <p className="text-xs text-emerald-600 truncate">{verifiedEmail}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setVerifiedEmail('')}
-                        className="ml-auto text-xs text-emerald-400 hover:text-emerald-600 shrink-0"
-                      >
-                        change
-                      </button>
-                    </div>
-
-
-                    <Field label="what do people call you" required>
-                      <input
-                        type="text" placeholder="your name" value={form.name}
-                        onChange={(e) => set('name', e.target.value)} autoFocus
-                        className={inputCls}
-                      />
-                    </Field>
-                    <Field label="i am" required>
-                      <div className="flex gap-2">
-                        {['Man', 'Woman', 'Non-binary'].map((g) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => set('gender', g)}
-                            className={`flex-1 py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                              form.gender === g
-                                ? 'bg-[#111] text-white border-[#111]'
-                                : 'bg-white text-[#6b6760] border-[#e8e6e1] hover:border-[#111]'
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </Field>
-                    <Field label="i'm into" required>
-                      <div className="flex gap-2">
-                        {['Men', 'Women', 'Non-binary'].map((g) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => setForm(f => ({
-                              ...f,
-                              want_to_date: f.want_to_date.includes(g)
-                                ? f.want_to_date.filter(x => x !== g)
-                                : [...f.want_to_date, g]
-                            }))}
-                            className={`flex-1 py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                              form.want_to_date.includes(g)
-                                ? 'bg-[#111] text-white border-[#111]'
-                                : 'bg-white text-[#6b6760] border-[#e8e6e1] hover:border-[#111]'
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </Field>
-                    <Field label="phone" required hint="verification code goes here 📱">
-                      <div className="flex items-center bg-white border border-[#e8e6e1] rounded-xl overflow-hidden focus-within:border-[#111] transition-colors">
-                        <div className="flex items-center gap-1.5 px-3 py-3 border-r border-[#e8e6e1] shrink-0 select-none">
-                          <span className="text-base leading-none">🇺🇸</span>
-                          <span className="text-sm text-[#6b6760] font-medium">+1</span>
-                        </div>
-                        <input
-                          type="tel"
-                          placeholder="(555) 000-0000"
-                          value={form.phone}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
-                            let formatted = digits
-                            if (digits.length >= 7) formatted = `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
-                            else if (digits.length >= 4) formatted = `(${digits.slice(0,3)}) ${digits.slice(3)}`
-                            else if (digits.length >= 1) formatted = `(${digits}`
-                            set('phone', formatted)
-                          }}
-                          className="flex-1 px-3 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none bg-transparent"
-                        />
-                      </div>
-                    </Field>
-                    {error && <ErrorMsg>{error}</ErrorMsg>}
-                    <Btn loading={loading} label="shoot your shot →" />
-                  </form>
-                )}
+        {/* Step: geo */}
+        {mode === 'signup' && step === 'geo' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="📍" title="Where do you usually show up?" sub="Maple matches you with people who move through campus the way you do. Add up to 5." />
+            {spots.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {spots.map(s => (
+                  <button key={s} onClick={() => removeSpot(s)} className="flex items-center gap-1 bg-[#f1efea] text-[#111] text-xs font-medium rounded-full pl-3 pr-2 py-1.5 hover:bg-[#e8e6e1] transition-colors">
+                    {s} <span className="text-[#9b9590]">×</span>
+                  </button>
+                ))}
               </div>
             )}
-
-            <p className="text-center text-xs text-[#c5c0bb] mt-6 leading-relaxed">
-              5Cs only · no pics · mutual matches only 🤝
-            </p>
-            <p className="text-center text-xs text-[#c5c0bb] mt-2">
-              <a href="/privacy" className="underline hover:text-[#9b9590]">Privacy</a>
-              {' · '}
-              <a href="/terms" className="underline hover:text-[#9b9590]">Terms</a>
-            </p>
-          </>
+            {spots.length < 5 && (
+              <div className="flex gap-2">
+                <input
+                  type="text" value={spotInput} placeholder="e.g. Honnold Library, Roberts gym…"
+                  onChange={(e) => setSpotInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSpot(spotInput) } }}
+                  className={inputCls}
+                />
+                <button onClick={() => addSpot(spotInput)} disabled={!spotInput.trim()} className="px-4 rounded-xl bg-[#111] text-white text-sm font-medium disabled:opacity-30 active:scale-95 transition-all">add</button>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {SPOT_SUGGESTIONS.filter(s => !spots.some(x => x.toLowerCase() === s.toLowerCase())).map(s => (
+                <button key={s} onClick={() => addSpot(s)} disabled={spots.length >= 5} className="text-xs text-[#6b6760] border border-dashed border-[#d8d4ce] rounded-full px-3 py-1.5 hover:border-[#111] hover:text-[#111] disabled:opacity-40 transition-colors">+ {s}</button>
+              ))}
+            </div>
+            <ContinueBtn onClick={goNext} disabled={false} label={spots.length === 0 ? 'skip for now →' : 'continue →'} />
+          </div>
         )}
+
+        {/* Step: password */}
+        {mode === 'signup' && step === 'password' && (
+          <div className="animate-fade-in">
+            <StepTitle emoji="🔐" title="Set a password" sub="You'll use your email + this password to log back in." />
+            <div className="space-y-2">
+              <input
+                type="password" placeholder="password (8+ characters)" value={password} autoFocus
+                onChange={(e) => setPassword(e.target.value)} className={inputCls}
+              />
+              <input
+                type="password" placeholder="confirm password" value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') finishSignup() }}
+                className={inputCls}
+              />
+            </div>
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+            <button
+              onClick={finishSignup} disabled={loading || password.length < 8 || password !== password2}
+              className="w-full mt-4 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
+            >
+              {loading ? 'Creating your account...' : 'create account →'}
+            </button>
+          </div>
+        )}
+
+        <p className="text-center text-xs text-[#c5c0bb] mt-6 leading-relaxed">5Cs only · mutual matches only 🤝</p>
+        <p className="text-center text-xs text-[#c5c0bb] mt-2">
+          <a href="/privacy" className="underline hover:text-[#9b9590]">Privacy</a>{' · '}
+          <a href="/terms" className="underline hover:text-[#9b9590]">Terms</a>
+        </p>
       </div>
     </main>
   )
@@ -615,6 +725,63 @@ export default function HomePage() {
 
 const inputCls = "w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none focus:border-[#111] transition-colors"
 
+function StepTitle({ emoji, title, sub }: { emoji: string; title: string; sub?: string }) {
+  return (
+    <div className="mb-5">
+      <div className="text-3xl mb-2">{emoji}</div>
+      <h2 className="text-lg font-semibold text-[#111] leading-snug">{title}</h2>
+      {sub && <p className="text-sm text-[#9b9590] mt-1 leading-relaxed">{sub}</p>}
+    </div>
+  )
+}
+
+function Choice({ active, onClick, label, multi }: { active: boolean; onClick: () => void; label: string; multi?: boolean }) {
+  return (
+    <button
+      type="button" onClick={onClick}
+      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${active ? 'bg-[#111] text-white border-[#111]' : 'bg-white text-[#6b6760] border-[#e8e6e1] hover:border-[#111]'}`}
+    >
+      {label}
+      {active && <span className="text-xs">{multi ? '✓' : '●'}</span>}
+    </button>
+  )
+}
+
+function ContinueBtn({ onClick, disabled, label = 'continue →' }: { onClick: () => void; disabled: boolean; label?: string }) {
+  return (
+    <button
+      onClick={onClick} disabled={disabled}
+      className="w-full mt-6 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
+    >
+      {label}
+    </button>
+  )
+}
+
+function VerifiedBadge({ email }: { email: string }) {
+  return (
+    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5">
+      <span className="text-emerald-500 text-base">✓</span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-emerald-700">school email verified</p>
+        <p className="text-xs text-emerald-600 truncate">{email}</p>
+      </div>
+    </div>
+  )
+}
+
+function IntroPoint({ icon, title, desc }: { icon: string; title: string; desc: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-9 h-9 rounded-full bg-white border border-[#e8e6e1] flex items-center justify-center text-base shrink-0">{icon}</div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-[#111] leading-tight">{title}</p>
+        <p className="text-xs text-[#9b9590] leading-snug mt-0.5">{desc}</p>
+      </div>
+    </div>
+  )
+}
+
 function Field({ label, hint, required, children, className = '' }: {
   label: string; hint?: string; required?: boolean; children: React.ReactNode; className?: string
 }) {
@@ -622,8 +789,7 @@ function Field({ label, hint, required, children, className = '' }: {
     <div className={className}>
       <div className="flex items-baseline gap-2 mb-1.5">
         <label className="text-xs font-medium text-[#6b6760]">
-          {label}
-          {required && <span className="text-red-400 ml-0.5">*</span>}
+          {label}{required && <span className="text-red-400 ml-0.5">*</span>}
         </label>
         {hint && <span className="text-xs text-[#c5c0bb]">{hint}</span>}
       </div>
@@ -645,89 +811,4 @@ function Btn({ loading, label }: { loading: boolean; label: string }) {
 
 function ErrorMsg({ children }: { children: React.ReactNode }) {
   return <p className="text-red-500 text-sm text-center py-1">{children}</p>
-}
-
-function MapleIcon() {
-  return (
-    <img
-      src="/maple-logo.svg"
-      alt="Maple"
-      className="w-16 h-16 object-contain"
-    />
-  )
-}
-
-// ─── In-app Availability Picker (for Microsoft users) ────────────────────────
-type BusySlot = { start: string; end: string }
-
-function AvailabilityPicker({ onBusySlots }: { onBusySlots: (slots: BusySlot[]) => void }) {
-  // Next 5 days starting tomorrow (skip Sunday)
-  const days = Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() + i + 1); d.setHours(0,0,0,0); return d
-  }).filter(d => d.getDay() !== 0).slice(0, 5)
-
-  const SLOTS = [{ hour: 18, label: '6 PM' }, { hour: 19, label: '7 PM' }, { hour: 20, label: '8 PM' }]
-
-  // Default: all evenings free (all keys in set)
-  const [freeKeys, setFreeKeys] = useState<Set<string>>(() => {
-    const s = new Set<string>()
-    days.forEach(d => SLOTS.forEach(sl => s.add(`${d.toDateString()}-${sl.hour}`)))
-    return s
-  })
-
-  function toggle(key: string) {
-    setFreeKeys(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key); else next.add(key)
-
-      // Compute busy = all slots NOT in freeKeys
-      const busy: BusySlot[] = []
-      days.forEach(d => {
-        SLOTS.forEach(sl => {
-          const k = `${d.toDateString()}-${sl.hour}`
-          if (!next.has(k)) {
-            const utcH = sl.hour + 7 // PDT → UTC
-            const start = new Date(Date.UTC(
-              d.getFullYear(), d.getMonth(), d.getDate() + (utcH >= 24 ? 1 : 0),
-              utcH % 24, 0, 0, 0
-            ))
-            busy.push({ start: start.toISOString(), end: new Date(start.getTime() + 3600000).toISOString() })
-          }
-        })
-      })
-      onBusySlots(busy)
-      return next
-    })
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {days.map(day => (
-        <div key={day.toDateString()} className="flex items-center gap-2">
-          <span className="text-[11px] text-[#9b9590] w-[52px] shrink-0">
-            {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-          </span>
-          <div className="flex gap-1 flex-1">
-            {SLOTS.map(sl => {
-              const key = `${day.toDateString()}-${sl.hour}`
-              const free = freeKeys.has(key)
-              return (
-                <button
-                  key={sl.hour}
-                  type="button"
-                  onClick={() => toggle(key)}
-                  className={`flex-1 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
-                    free ? 'bg-[#111] text-white border-[#111]' : 'bg-white text-[#c5c0bb] border-[#e8e6e1]'
-                  }`}
-                >
-                  {sl.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-      <p className="text-[10px] text-[#c5c0bb] pt-0.5">dark = free · tap to toggle</p>
-    </div>
-  )
 }
