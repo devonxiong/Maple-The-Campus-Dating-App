@@ -22,7 +22,6 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Account info:</strong> your name, school email address, gender, dating preferences, and phone number.</li>
               <li><strong>Location:</strong> approximate GPS coordinates, used only to suggest nearby date venues. Never stored long-term or shared.</li>
-              <li><strong>Spotify data:</strong> top artists and genres (if you connect Spotify), used only to improve match recommendations.</li>
               <li><strong>Google Contacts:</strong> contact names and email addresses (if you connect your email), used only to show you classmates already on Maple. Never stored on our servers.</li>
               <li><strong>Usage data:</strong> swipes and match interactions, stored to power the matching algorithm.</li>
             </ul>

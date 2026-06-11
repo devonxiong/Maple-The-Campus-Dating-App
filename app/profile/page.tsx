@@ -177,21 +177,6 @@ function ProfileContent() {
               )}
             </div>
 
-            {/* Spotify status */}
-            <div className={`bg-white border rounded-2xl px-4 py-3.5 flex items-center justify-between ${
-              user.spotify_interests ? 'border-emerald-100' : 'border-[#e8e6e1]'
-            }`}>
-              <div>
-                <p className="text-sm font-medium text-[#111]">🎵 Spotify</p>
-                <p className="text-xs text-[#9b9590] mt-0.5">
-                  {user.spotify_interests ? 'Connected — used for music matching' : 'Not connected yet'}
-                </p>
-              </div>
-              {user.spotify_interests && (
-                <span className="text-xs text-emerald-500 font-medium">✓</span>
-              )}
-            </div>
-
             {/* Logout */}
             <div className="pt-2">
               <button

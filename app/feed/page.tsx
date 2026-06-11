@@ -58,7 +58,6 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true)
   const [contactsLoading, setContactsLoading] = useState(false)
   const [emailConnected, setEmailConnected] = useState(false)
-  const [spotifyConnected, setSpotifyConnected] = useState(false)
   const [swipeLoading, setSwipeLoading] = useState<string | null>(null)
   const [inviteLoading, setInviteLoading] = useState<string | null>(null)
   const [directInviteEmail, setDirectInviteEmail] = useState('')
@@ -144,63 +143,6 @@ export default function FeedPage() {
     setSavingSettings(false)
     showToast('Settings saved ✓')
   }
-
-  // Handle Spotify OAuth callback (PKCE — code in URL query params)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const state = params.get('state')
-    if (!code || state !== 'spotify') return
-    window.history.replaceState(null, '', window.location.pathname)
-
-    const userId = localStorage.getItem('anlan_user_id')
-    const verifier = localStorage.getItem('spotify_verifier')
-    if (!userId || !verifier) return
-    localStorage.removeItem('spotify_verifier')
-
-    const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!
-    const redirectUri = window.location.origin + '/feed'
-
-    async function exchangeAndSave() {
-      try {
-        // Exchange code for token
-        const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type: 'authorization_code',
-            code: code!,
-            redirect_uri: redirectUri,
-            client_id: clientId,
-            code_verifier: verifier!,
-          }),
-        })
-        const tokenData = await tokenRes.json()
-        const token = tokenData.access_token
-        if (!token) { showToast('Spotify auth failed'); return }
-
-        // Fetch top music data
-        const [artistsRes, tracksRes] = await Promise.all([
-          fetch('https://api.spotify.com/v1/me/top/artists?limit=10&time_range=medium_term', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch('https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=medium_term', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ])
-        const [artistsData, tracksData] = await Promise.all([artistsRes.json(), tracksRes.json()])
-        const top_artists = (artistsData.items ?? []).map((a: { name: string }) => a.name)
-        const top_tracks = (tracksData.items ?? []).map((t: { name: string; artists: { name: string }[] }) => `${t.name} — ${t.artists[0]?.name}`)
-        const genres = [...new Set((artistsData.items ?? []).flatMap((a: { genres: string[] }) => a.genres))].slice(0, 8)
-        await supabase.from('users').update({ spotify_interests: { top_artists, top_tracks, genres } }).eq('id', userId)
-        setSpotifyConnected(true)
-        showToast('🎵 Spotify connected!')
-      } catch {
-        showToast('Failed to connect Spotify')
-      }
-    }
-    exchangeAndSave()
-  }, [])
 
   // Bell: geolocation → update user_presence every 30s
   useEffect(() => {
@@ -307,8 +249,6 @@ export default function FeedPage() {
         const meAny = me as unknown as Record<string, unknown>
         setGeotracking(meAny.geotracking_enabled !== false)
         setAgentEnabled(meAny.agent_enabled !== false)
-        // Spotify: mark as connected if already linked
-        if (me.spotify_interests) setSpotifyConnected(true)
         // Top spots
         setTopSpots(me.top_spots ?? [])
         // Blind date requests
@@ -462,31 +402,6 @@ export default function FeedPage() {
     } finally {
       setContactsLoading(false)
     }
-  }
-
-  async function connectSpotify() {
-    const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID
-    if (!clientId) { showToast('Spotify not configured'); return }
-
-    // Generate PKCE code verifier + challenge
-    const verifier = Array.from(crypto.getRandomValues(new Uint8Array(64)))
-      .map(b => b.toString(16).padStart(2, '0')).join('')
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
-    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-
-    localStorage.setItem('spotify_verifier', verifier)
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      redirect_uri: window.location.origin + '/feed',
-      scope: 'user-top-read',
-      state: 'spotify',
-      code_challenge_method: 'S256',
-      code_challenge: challenge,
-    })
-    window.location.href = `https://accounts.spotify.com/authorize?${params}`
   }
 
   function connectEmail() {
@@ -720,23 +635,6 @@ export default function FeedPage() {
         </div>
 
 
-        {/* Spotify connect banner */}
-        {!spotifyConnected && (
-          <button
-            onClick={connectSpotify}
-            className="w-full mb-3 flex items-center gap-3 bg-white border border-[#e8e6e1] rounded-2xl px-4 py-3.5 text-left hover:border-[#1DB954] transition-colors group"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#f0fdf4] flex items-center justify-center shrink-0">
-              <span className="text-base">🎵</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-[#111]">connect Spotify</p>
-              <p className="text-xs text-[#9b9590]">match on music taste too? yes please 🎵</p>
-            </div>
-            <span className="text-xs text-[#9b9590] shrink-0">→</span>
-          </button>
-        )}
-
         {contactsLoading && (
           <div className="flex items-center gap-2 text-xs text-[#9b9590] mb-5 px-1">
             <div className="w-3 h-3 rounded-full border border-[#9b9590] border-t-transparent animate-spin" />
@@ -965,12 +863,6 @@ export default function FeedPage() {
                   <span className="text-sm mt-0.5">📨</span>
                   <p className="text-xs text-[#6b6760] leading-relaxed">
                     invite your friends — the more people here, the better your odds
-                  </p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span className="text-sm mt-0.5">🎵</span>
-                  <p className="text-xs text-[#6b6760] leading-relaxed">
-                    connect Spotify for better matches when new people join
                   </p>
                 </div>
                 <div className="flex items-start gap-2.5">
