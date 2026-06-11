@@ -14,6 +14,8 @@ export interface User {
   schedule_text: string | null
   campus: string | null
   spotify_interests: SpotifyInterests | null
+  top_spots: string[] | null
+  avatar_url: string | null
   created_at: string
 }
 
@@ -28,7 +30,7 @@ export interface Swipe {
 export interface Notification {
   id: string
   to_user: string
-  type: 'bell'
+  type: 'bell' | 'blind_date' | 'blind_date_accepted' | 'blind_date_declined'
   message: string
   created_at: string
   read_at: string | null
@@ -72,4 +74,6 @@ export interface FeedCard {
   user: User
   score: number
   hint: string
+  school?: string
+  distanceKm?: number
 }

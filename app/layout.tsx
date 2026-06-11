@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import SupportButton from "./components/SupportButton";
 
 export const metadata: Metadata = {
   title: "Maple — Campus Dating",
@@ -24,7 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <SupportButton />
+      </body>
     </html>
   );
 }

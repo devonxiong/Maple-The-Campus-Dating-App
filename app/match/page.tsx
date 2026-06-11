@@ -50,8 +50,6 @@ export default function MatchPage() {
   const [dateCard, setDateCard] = useState<DateCard | null>(null)
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
   const [simulatedStep, setSimulatedStep] = useState(0)
-  const [numberShared, setNumberShared] = useState(false)
-  const [sharingNumber, setSharingNumber] = useState(false)
 
   useEffect(() => {
     const matchId = localStorage.getItem('anlan_match_id')
@@ -401,21 +399,26 @@ export default function MatchPage() {
       ? (dateCard.maps_url as string) || `https://maps.google.com/?q=${encodeURIComponent(dateCard.venue + ' Claremont CA')}`
       : null
 
-    async function shareNumber() {
-      if (sharingNumber || numberShared) return
-      setSharingNumber(true)
-      const matchId = localStorage.getItem('anlan_match_id') ?? match?.id
-      const fromUserId = localStorage.getItem('anlan_user_id')
-      try {
-        await fetch('/api/share-contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matchId, fromUserId }),
-        })
-        setNumberShared(true)
-      } finally {
-        setSharingNumber(false)
-      }
+    function addToContacts() {
+      if (!them?.name || !them?.phone) return
+      const phone = them.phone.replace(/\D/g, '')
+      const vcard = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `FN:${them.name}`,
+        `TEL;TYPE=CELL:+${phone.startsWith('1') ? phone : '1' + phone}`,
+        'NOTE:Met on Maple 🍁',
+        'END:VCARD',
+      ].join('\n')
+      const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${them.name.replace(/\s+/g, '_')}.vcf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
     }
 
     const whatsappUrl = them?.phone
@@ -435,19 +438,24 @@ export default function MatchPage() {
           {/* Stay connected */}
           <div className="bg-white border border-[#e8e6e1] rounded-2xl p-4 mb-4 text-left">
             <p className="text-sm font-medium text-[#111] mb-1">stay connected with {them?.name?.split(' ')[0]} 📱</p>
-            <p className="text-xs text-[#9b9590] mb-3">share your number so they can reach you</p>
+            <p className="text-xs text-[#9b9590] mb-3">save their number or hit them up directly</p>
             <div className="space-y-2">
-              <button
-                onClick={shareNumber}
-                disabled={sharingNumber || numberShared}
-                className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-medium transition-all active:scale-[0.98] ${
-                  numberShared
-                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                    : 'bg-[#111] text-white'
-                }`}
-              >
-                {sharingNumber ? '···' : numberShared ? '✓ number sent!' : '📱 share my number'}
-              </button>
+
+              {/* Add to Contacts — saves THEIR number to YOUR phone */}
+              {them?.phone && (
+                <button
+                  onClick={addToContacts}
+                  className="w-full flex items-center justify-center gap-2 bg-[#111] text-white rounded-xl py-3 text-xs font-medium active:scale-[0.98] transition-transform"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <line x1="19" y1="8" x2="19" y2="14"/>
+                    <line x1="22" y1="11" x2="16" y2="11"/>
+                  </svg>
+                  Add {them.name.split(' ')[0]} to contacts
+                </button>
+              )}
 
               {whatsappUrl && (
                 <a

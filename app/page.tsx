@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -61,6 +61,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [darkMode, setDarkMode] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
+  const [splashLeaving, setSplashLeaving] = useState(false)
+  const touchStartY = useRef(0)
 
   useEffect(() => {
     const saved = localStorage.getItem('maple_dark')
@@ -140,6 +143,7 @@ export default function HomePage() {
         const token = tokenData.access_token
         if (!token) { setError('Microsoft sign-in failed. Try again.'); return }
 
+        // 1. Verify school email
         const meRes = await fetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName', {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -149,6 +153,7 @@ export default function HomePage() {
           setError('Only 5C emails allowed: pitzer · pomona · scripps · cmc · hmc')
           return
         }
+
         setVerifiedEmail(email)
         setMode('signup')
       } catch {
@@ -298,7 +303,7 @@ export default function HomePage() {
       if (!res.ok) { setOtpError('Wrong code — try again'); return }
       localStorage.setItem('anlan_user_id', pendingUserId)
       localStorage.setItem('anlan_user_name', json.name ?? pendingName)
-      router.push('/feed')
+      router.push('/profile?setup=1')
     } catch { setOtpError('Network error. Try again.') }
     finally { setOtpLoading(false) }
   }
@@ -312,6 +317,35 @@ export default function HomePage() {
     })
     if (res.ok) setOtpError('New code sent ✓')
     else setOtpError('Failed to resend. Try again.')
+  }
+
+  function dismissSplash() {
+    if (!showSplash) return
+    setSplashLeaving(true)
+    setTimeout(() => setShowSplash(false), 400)
+  }
+
+  // Splash screen
+  if (showSplash) {
+    return (
+      <main
+        className="min-h-screen flex flex-col items-center justify-center bg-[#f8f7f4] select-none cursor-pointer"
+        onClick={dismissSplash}
+        onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY }}
+        onTouchEnd={(e) => { if (touchStartY.current - e.changedTouches[0].clientY > 40) dismissSplash() }}
+        onWheel={(e) => { if (e.deltaY > 20) dismissSplash() }}
+      >
+        <div className={`flex flex-col items-center gap-4 transition-all duration-400 ${splashLeaving ? '-translate-y-12 opacity-0' : 'opacity-100'}`}>
+          <img src="/maple-logo.svg" alt="Maple" className="w-24 h-24 object-contain" />
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#111]">Maple</h1>
+          <p className="text-sm text-[#9b9590]">For the one you&apos;ve seen a thousand times.</p>
+        </div>
+        <div className={`absolute bottom-14 flex flex-col items-center gap-1.5 transition-opacity duration-400 ${splashLeaving ? 'opacity-0' : 'opacity-100'}`}>
+          <span className="text-[#c5c0bb] text-xs tracking-wide">swipe up</span>
+          <span className="text-[#c5c0bb] animate-bounce text-sm">↑</span>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -335,7 +369,7 @@ export default function HomePage() {
             <MapleIcon />
           </div>
           <h1 className="text-[26px] font-semibold tracking-tight text-[#111]">Maple</h1>
-          <p className="text-sm text-[#9b9590] mt-1">your crush is probably already here 👀</p>
+          <p className="text-sm text-[#9b9590] mt-1">For the one you've seen a thousand times.</p>
         </div>
 
         {/* SMS OTP screen */}
@@ -484,6 +518,7 @@ export default function HomePage() {
                       </button>
                     </div>
 
+
                     <Field label="what do people call you" required>
                       <input
                         type="text" placeholder="your name" value={form.name}
@@ -619,5 +654,80 @@ function MapleIcon() {
       alt="Maple"
       className="w-16 h-16 object-contain"
     />
+  )
+}
+
+// ─── In-app Availability Picker (for Microsoft users) ────────────────────────
+type BusySlot = { start: string; end: string }
+
+function AvailabilityPicker({ onBusySlots }: { onBusySlots: (slots: BusySlot[]) => void }) {
+  // Next 5 days starting tomorrow (skip Sunday)
+  const days = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i + 1); d.setHours(0,0,0,0); return d
+  }).filter(d => d.getDay() !== 0).slice(0, 5)
+
+  const SLOTS = [{ hour: 18, label: '6 PM' }, { hour: 19, label: '7 PM' }, { hour: 20, label: '8 PM' }]
+
+  // Default: all evenings free (all keys in set)
+  const [freeKeys, setFreeKeys] = useState<Set<string>>(() => {
+    const s = new Set<string>()
+    days.forEach(d => SLOTS.forEach(sl => s.add(`${d.toDateString()}-${sl.hour}`)))
+    return s
+  })
+
+  function toggle(key: string) {
+    setFreeKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+
+      // Compute busy = all slots NOT in freeKeys
+      const busy: BusySlot[] = []
+      days.forEach(d => {
+        SLOTS.forEach(sl => {
+          const k = `${d.toDateString()}-${sl.hour}`
+          if (!next.has(k)) {
+            const utcH = sl.hour + 7 // PDT → UTC
+            const start = new Date(Date.UTC(
+              d.getFullYear(), d.getMonth(), d.getDate() + (utcH >= 24 ? 1 : 0),
+              utcH % 24, 0, 0, 0
+            ))
+            busy.push({ start: start.toISOString(), end: new Date(start.getTime() + 3600000).toISOString() })
+          }
+        })
+      })
+      onBusySlots(busy)
+      return next
+    })
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {days.map(day => (
+        <div key={day.toDateString()} className="flex items-center gap-2">
+          <span className="text-[11px] text-[#9b9590] w-[52px] shrink-0">
+            {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </span>
+          <div className="flex gap-1 flex-1">
+            {SLOTS.map(sl => {
+              const key = `${day.toDateString()}-${sl.hour}`
+              const free = freeKeys.has(key)
+              return (
+                <button
+                  key={sl.hour}
+                  type="button"
+                  onClick={() => toggle(key)}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                    free ? 'bg-[#111] text-white border-[#111]' : 'bg-white text-[#c5c0bb] border-[#e8e6e1]'
+                  }`}
+                >
+                  {sl.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <p className="text-[10px] text-[#c5c0bb] pt-0.5">dark = free · tap to toggle</p>
+    </div>
   )
 }

@@ -22,7 +22,49 @@ const CLAREMONT_SPOTS = [
   { name: 'The Hub at Pomona College', address: 'Pomona College, Claremont, CA', lat: 34.0988, lng: -117.7072, vibe: 'on-campus café, super easy to get to' },
 ]
 
-// Haversine distance in meters
+// ── Calendar free-slot finder ────────────────────────────────────────────────
+type BusySlot = { start: string; end: string }
+
+function overlaps(s1: Date, e1: Date, s2: Date, e2: Date): boolean {
+  return s1 < e2 && e1 > s2
+}
+
+// Find the first mutually free 90-min evening slot (6–8 PM Pacific) in next 14 days
+function findMutualFreeEvening(busyA: BusySlot[], busyB: BusySlot[]): string | null {
+  // Claremont, CA: PDT = UTC-7 (May–Nov)
+  for (let d = 1; d <= 14; d++) {
+    const baseDate = new Date(Date.now() + d * 86400 * 1000)
+
+    for (const hourPDT of [19, 18, 20]) { // try 7pm, 6pm, 8pm
+      const hourUTC = hourPDT + 7           // PDT + 7 = UTC
+      const extraDay = hourUTC >= 24 ? 1 : 0
+
+      const slotStart = new Date(Date.UTC(
+        baseDate.getUTCFullYear(),
+        baseDate.getUTCMonth(),
+        baseDate.getUTCDate() + extraDay,
+        hourUTC % 24, 0, 0, 0,
+      ))
+      const slotEnd = new Date(slotStart.getTime() + 90 * 60 * 1000)
+
+      const aFree = !busyA.some(b => overlaps(slotStart, slotEnd, new Date(b.start), new Date(b.end)))
+      const bFree = !busyB.some(b => overlaps(slotStart, slotEnd, new Date(b.start), new Date(b.end)))
+
+      if (aFree && bFree) {
+        const dateStr = slotStart.toLocaleDateString('en-US', {
+          weekday: 'long', month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles',
+        })
+        const timeStr = slotStart.toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles',
+        })
+        return `${dateStr} · ${timeStr}`
+      }
+    }
+  }
+  return null
+}
+
+// ── Haversine distance in meters ─────────────────────────────────────────────
 function distanceM(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371000
   const dLat = (lat2 - lat1) * Math.PI / 180
@@ -69,11 +111,24 @@ export async function POST(req: NextRequest) {
 
   if (matchErr || !match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
 
-  // Get GPS locations
-  const { data: presences } = await supabaseAdmin
-    .from('user_presence')
-    .select('user_id, lat, lng')
-    .in('user_id', [match.user_a, match.user_b])
+  // Get GPS locations + calendar busy slots in parallel
+  const [{ data: presences }, { data: calUsers }] = await Promise.all([
+    supabaseAdmin
+      .from('user_presence')
+      .select('user_id, lat, lng')
+      .in('user_id', [match.user_a, match.user_b]),
+    supabaseAdmin
+      .from('users')
+      .select('id, busy_slots')
+      .in('id', [match.user_a, match.user_b]),
+  ])
+
+  // Find mutual free evening time
+  const calA = calUsers?.find(u => u.id === match.user_a)
+  const calB = calUsers?.find(u => u.id === match.user_b)
+  const busyA: BusySlot[] = (calA?.busy_slots as BusySlot[]) ?? []
+  const busyB: BusySlot[] = (calB?.busy_slots as BusySlot[]) ?? []
+  const calendarTime = findMutualFreeEvening(busyA, busyB)
 
   const a = presences?.find(p => p.user_id === match.user_a)
   const b = presences?.find(p => p.user_id === match.user_b)
@@ -135,7 +190,7 @@ export async function POST(req: NextRequest) {
   }
 
   const dateCardJson = {
-    time: nextFridayEvening(),
+    time: calendarTime ?? nextFridayEvening(),
     venue: chosenSpot.name,
     address: chosenSpot.address,
     walk_minutes: chosenSpot.walk_minutes,
@@ -144,7 +199,7 @@ export async function POST(req: NextRequest) {
     lat: chosenSpot.lat,
     lng: chosenSpot.lng,
     shared_context: chosenSpot.vibe,
-    reasoning: `${chosenSpot.name} is roughly equidistant for both of you — ~${chosenSpot.walk_minutes} min walk each.`,
+    reasoning: `${chosenSpot.name} is roughly equidistant for both of you — ~${chosenSpot.walk_minutes} min walk each.${calendarTime ? ' Time picked from your real calendars — both of you are free then ✓' : ''}`,
     icebreaker: "What's the most unexpectedly good thing you've discovered around here?",
   }
 
