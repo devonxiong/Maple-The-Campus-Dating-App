@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@/types'
 import { schoolFromEmail } from '@/lib/score'
+import { useLang, PROFILE } from '@/lib/i18n'
+import LangToggle from '../components/LangToggle'
 
 const COLORS = [
   'bg-rose-50 text-rose-500', 'bg-sky-50 text-sky-500',
@@ -27,6 +29,8 @@ function ProfileContent() {
   const [uploading, setUploading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [lang, toggleLang] = useLang()
+  const t = PROFILE[lang]
 
   function showToast(msg: string) {
     setToast(msg)
@@ -48,8 +52,8 @@ function ProfileContent() {
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !user) return
-    if (!file.type.startsWith('image/')) { showToast('Please select an image'); return }
-    if (file.size > 5 * 1024 * 1024) { showToast('Photo too large — max 5MB'); return }
+    if (!file.type.startsWith('image/')) { showToast(t.tSelectImage); return }
+    if (file.size > 5 * 1024 * 1024) { showToast(t.tTooLarge); return }
 
     setUploading(true)
     try {
@@ -60,14 +64,14 @@ function ProfileContent() {
         .from('avatars')
         .upload(path, file, { upsert: true, contentType: file.type })
 
-      if (uploadErr) { showToast('Upload failed — try again'); console.error(uploadErr); return }
+      if (uploadErr) { showToast(t.tUploadFail); console.error(uploadErr); return }
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
       await supabase.from('users').update({ avatar_url: publicUrl }).eq('id', user.id)
       setAvatarUrl(publicUrl)
-      showToast('Photo saved ✓')
+      showToast(t.tSaved)
     } catch {
-      showToast('Upload failed — try again')
+      showToast(t.tUploadFail)
     } finally {
       setUploading(false)
     }
@@ -96,20 +100,21 @@ function ProfileContent() {
       <div className="max-w-[420px] mx-auto px-4 py-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between mb-8">
           {isSetup ? (
             <div>
-              <h1 className="text-lg font-semibold text-[#111]">One last thing 👋</h1>
-              <p className="text-xs text-[#9b9590]">add a photo so people know it's you</p>
+              <h1 className="text-lg font-semibold text-[#111]">{t.setupTitle}</h1>
+              <p className="text-xs text-[#9b9590]">{t.setupSub}</p>
             </div>
           ) : (
             <button
               onClick={() => router.push('/feed')}
               className="text-sm text-[#9b9590] hover:text-[#111] transition-colors"
             >
-              ← back
+              {t.back}
             </button>
           )}
+          <LangToggle lang={lang} onToggle={toggleLang} />
         </div>
 
         {/* Avatar */}
@@ -150,13 +155,13 @@ function ProfileContent() {
               disabled={uploading}
               className="w-full py-3.5 bg-[#111] text-white text-sm font-medium rounded-2xl disabled:opacity-40 active:scale-[0.98] transition-all"
             >
-              {uploading ? 'Uploading...' : avatarUrl ? 'Change photo 📷' : 'Add a photo 📷'}
+              {uploading ? t.uploading : avatarUrl ? t.changePhoto : t.addPhoto}
             </button>
             <button
               onClick={() => router.push('/feed')}
               className="w-full py-3 text-sm text-[#9b9590] hover:text-[#111] transition-colors"
             >
-              {avatarUrl ? 'looks good, continue →' : 'skip for now'}
+              {avatarUrl ? t.looksGood : t.skip}
             </button>
           </div>
         ) : (
@@ -164,16 +169,16 @@ function ProfileContent() {
           <div className="space-y-3">
 
             <div className="bg-white border border-[#e8e6e1] rounded-2xl divide-y divide-[#f0ede8]">
-              <ProfileRow label="Email" value={user.email} />
-              <ProfileRow label="Gender" value={user.gender} />
+              <ProfileRow label={t.email} value={user.email} />
+              <ProfileRow label={t.gender} value={user.gender} />
               <ProfileRow
-                label="Looking for"
+                label={t.lookingFor}
                 value={Array.isArray(user.want_to_date)
                   ? user.want_to_date.join(', ')
                   : (user.want_to_date ?? '—')}
               />
               {user.top_spots && user.top_spots.length > 0 && (
-                <ProfileRow label="Spots" value={user.top_spots.join(', ')} />
+                <ProfileRow label={t.spots} value={user.top_spots.join(', ')} />
               )}
             </div>
 
@@ -183,7 +188,7 @@ function ProfileContent() {
                 onClick={handleLogout}
                 className="w-full py-3 border border-[#e8e6e1] rounded-2xl text-sm text-[#9b9590] hover:border-red-300 hover:text-red-400 transition-all active:scale-[0.98]"
               >
-                log out
+                {t.logout}
               </button>
             </div>
 

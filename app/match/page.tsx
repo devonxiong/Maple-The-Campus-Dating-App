@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Match, DateCard, User, AgentStep } from '@/types'
+import { useLang, MATCH } from '@/lib/i18n'
+import LangToggle from '../components/LangToggle'
 
 const COLORS = [
   'bg-rose-50 text-rose-500',
@@ -30,15 +32,6 @@ function nextFriday() {
   return friday.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) + ' · 7:00 PM'
 }
 
-const DEMO_STEPS = [
-  'Match detected',
-  'Fetching profiles',
-  'Reading calendars & parsing schedules',
-  'Finding best venue',
-  'Generating date plan',
-  'Sending confirmation',
-]
-
 type Screen = 'reveal' | 'loading' | 'datecard' | 'confirmed'
 
 export default function MatchPage() {
@@ -50,6 +43,9 @@ export default function MatchPage() {
   const [dateCard, setDateCard] = useState<DateCard | null>(null)
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
   const [simulatedStep, setSimulatedStep] = useState(0)
+  const [lang, toggleLang] = useLang()
+  const t = MATCH[lang]
+  const demoSteps = [t.step1, t.step2, t.step3, t.step4, t.step5, t.step6]
 
   useEffect(() => {
     const matchId = localStorage.getItem('anlan_match_id')
@@ -167,7 +163,7 @@ export default function MatchPage() {
     await supabase.from('matches').update({ cancel_count: newCount, status: 'cancelled' }).eq('id', matchId)
     markMatchHandled(matchId)
     if (newCount >= 3) {
-      alert('You\'ve cancelled 3 dates. Your account is paused for 1 week.')
+      alert(t.cancelled3)
     }
     router.push('/feed')
   }
@@ -183,13 +179,14 @@ export default function MatchPage() {
   // ── Screen 3: Match reveal ────────────────────────────────────────────────
   if (screen === 'reveal') {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+      <main className="relative min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+        <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
         <div className="w-full max-w-[360px] text-center animate-scale-in">
 
           <div className="mb-8">
             <div className="text-5xl mb-4">🎉</div>
-            <h1 className="text-2xl font-semibold text-[#111] mb-1">it&apos;s giving mutual 🍁</h1>
-            <p className="text-sm text-[#9b9590]">you both shot your shot. respect.</p>
+            <h1 className="text-2xl font-semibold text-[#111] mb-1">{t.revealTitle}</h1>
+            <p className="text-sm text-[#9b9590]">{t.revealSub}</p>
           </div>
 
           {/* Avatar pair */}
@@ -211,7 +208,7 @@ export default function MatchPage() {
 
           {/* Identity reveal card */}
           <div className="bg-white rounded-2xl border border-[#e8e6e1] px-5 py-4 mb-6 text-left">
-            <p className="text-xs text-[#9b9590] mb-1">your person 🫶</p>
+            <p className="text-xs text-[#9b9590] mb-1">{t.yourPerson}</p>
             <p className="text-base font-semibold text-[#111]">{them.name}</p>
             <p className="text-sm text-[#9b9590]">{them.gender}</p>
           </div>
@@ -220,9 +217,9 @@ export default function MatchPage() {
             onClick={handleArrange}
             className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium active:scale-[0.98] transition-transform"
           >
-            let AI cook the date →
+            {t.letAiCook}
           </button>
-          <p className="text-xs text-[#c5c0bb] mt-4">they found out at the exact same time 👀</p>
+          <p className="text-xs text-[#c5c0bb] mt-4">{t.sameTime}</p>
         </div>
       </main>
     )
@@ -230,21 +227,22 @@ export default function MatchPage() {
 
   // ── Loading: Agent steps ──────────────────────────────────────────────────
   if (screen === 'loading') {
-    const displaySteps: AgentStep[] = agentSteps.length > 0 ? agentSteps : DEMO_STEPS.map((label, i) => ({
+    const displaySteps: AgentStep[] = agentSteps.length > 0 ? agentSteps : demoSteps.map((label, i) => ({
       label,
       status: i < simulatedStep ? 'done' : i === simulatedStep ? 'running' : 'pending',
       ts: i < simulatedStep ? new Date().toISOString() : '',
     }))
 
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+      <main className="relative min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+        <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
         <div className="w-full max-w-[340px] animate-fade-up">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-black mb-4">
               <span className="text-xl">🤖</span>
             </div>
-            <h2 className="text-base font-semibold text-[#111]">AI is literally cooking rn</h2>
-            <p className="text-xs text-[#9b9590] mt-1">planning something just for you two ✨</p>
+            <h2 className="text-base font-semibold text-[#111]">{t.cookingTitle}</h2>
+            <p className="text-xs text-[#9b9590] mt-1">{t.cookingSub}</p>
           </div>
 
           <div className="space-y-2">
@@ -286,14 +284,14 @@ export default function MatchPage() {
                   </span>
                 )}
                 {step.status === 'running' && (
-                  <span className="ml-auto text-[10px] text-[#9b9590] animate-pulse">now</span>
+                  <span className="ml-auto text-[10px] text-[#9b9590] animate-pulse">{t.now}</span>
                 )}
               </div>
             ))}
           </div>
 
           <p className="text-center text-xs text-[#c5c0bb] mt-6">
-            give it ~10 seconds, we&apos;re not doing this mid 💅
+            {t.giveItSec}
           </p>
         </div>
       </main>
@@ -303,13 +301,14 @@ export default function MatchPage() {
   // ── Screen 4: Date card ───────────────────────────────────────────────────
   if (screen === 'datecard' && dateCard) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+      <main className="relative min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+        <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
         <div className="w-full max-w-[360px] animate-scale-in">
 
           <div className="text-center mb-6">
             <div className="text-3xl mb-3">📅</div>
-            <h1 className="text-xl font-semibold text-[#111]">the date is cooked. 🍁</h1>
-            <p className="text-sm text-[#9b9590] mt-1">personalized to both your schedules, no cap.</p>
+            <h1 className="text-xl font-semibold text-[#111]">{t.dateCooked}</h1>
+            <p className="text-sm text-[#9b9590] mt-1">{t.personalized}</p>
           </div>
 
           {/* Date card */}
@@ -318,7 +317,7 @@ export default function MatchPage() {
               <div className="flex items-center gap-3">
                 <span className="text-xl">📅</span>
                 <div>
-                  <p className="text-xs text-[#9b9590] mb-0.5">When</p>
+                  <p className="text-xs text-[#9b9590] mb-0.5">{t.when}</p>
                   <p className="text-sm font-semibold text-[#111]">{dateCard.time}</p>
                 </div>
               </div>
@@ -327,9 +326,9 @@ export default function MatchPage() {
               <div className="flex items-center gap-3 px-5 py-4">
                 <span className="text-xl">📍</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-[#9b9590] mb-0.5">Where</p>
+                  <p className="text-xs text-[#9b9590] mb-0.5">{t.where}</p>
                   <p className="text-sm font-semibold text-[#111]">{dateCard.venue}</p>
-                  <p className="text-xs text-[#9b9590]">~{dateCard.walk_minutes} min walk each</p>
+                  <p className="text-xs text-[#9b9590]">{t.walkEach(dateCard.walk_minutes)}</p>
                   {dateCard.maps_url && (
                     <a
                       href={dateCard.maps_url as string}
@@ -337,7 +336,7 @@ export default function MatchPage() {
                       rel="noopener noreferrer"
                       className="text-xs text-blue-500 underline mt-0.5 inline-block"
                     >
-                      open in maps →
+                      {t.openMaps}
                     </a>
                   )}
                 </div>
@@ -354,7 +353,7 @@ export default function MatchPage() {
               <div className="flex items-center gap-3">
                 <span className="text-xl">✦</span>
                 <div>
-                  <p className="text-xs text-[#9b9590] mb-0.5">What you have in common</p>
+                  <p className="text-xs text-[#9b9590] mb-0.5">{t.inCommon}</p>
                   <p className="text-sm text-[#111]">{dateCard.shared_context}</p>
                 </div>
               </div>
@@ -363,7 +362,7 @@ export default function MatchPage() {
               <div className="flex items-center gap-3">
                 <span className="text-xl">💬</span>
                 <div>
-                  <p className="text-xs text-[#9b9590] mb-0.5">Conversation starter</p>
+                  <p className="text-xs text-[#9b9590] mb-0.5">{t.convStarter}</p>
                   <p className="text-sm italic text-[#6b6760]">&ldquo;{dateCard.icebreaker}&rdquo;</p>
                 </div>
               </div>
@@ -378,15 +377,15 @@ export default function MatchPage() {
               onClick={handleConfirm}
               className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium active:scale-[0.98] transition-transform"
             >
-              i&apos;m in, let&apos;s go ✓
+              {t.imIn}
             </button>
             <button
               onClick={handleCancel}
               className="w-full border border-[#e8e6e1] rounded-xl py-3 text-sm text-[#9b9590] active:scale-[0.98] transition-transform"
             >
-              nah not feeling it
+              {t.nah}
             </button>
-            <p className="text-center text-[10px] text-[#c5c0bb]">ghost 3x and you&apos;re benched for a week 💀</p>
+            <p className="text-center text-[10px] text-[#c5c0bb]">{t.ghost}</p>
           </div>
         </div>
       </main>
@@ -426,19 +425,20 @@ export default function MatchPage() {
       : null
 
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-[#f8f7f4]">
+      <main className="relative min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-[#f8f7f4]">
+        <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
         <div className="w-full max-w-[360px] text-center animate-scale-in">
           <div className="text-5xl mb-4">🌟</div>
-          <h1 className="text-xl font-semibold text-[#111] mb-2">it&apos;s happening bestie 🎉</h1>
+          <h1 className="text-xl font-semibold text-[#111] mb-2">{t.happening}</h1>
           {dateCard && (
             <p className="text-sm text-[#9b9590] mb-1">{dateCard.time} · {dateCard.venue}</p>
           )}
-          <p className="text-xs text-[#c5c0bb] mb-6">both of you confirmed. don&apos;t be late 😤</p>
+          <p className="text-xs text-[#c5c0bb] mb-6">{t.bothConfirmed}</p>
 
           {/* Stay connected */}
           <div className="bg-white border border-[#e8e6e1] rounded-2xl p-4 mb-4 text-left">
-            <p className="text-sm font-medium text-[#111] mb-1">stay connected with {them?.name?.split(' ')[0]} 📱</p>
-            <p className="text-xs text-[#9b9590] mb-3">save their number or hit them up directly</p>
+            <p className="text-sm font-medium text-[#111] mb-1">{t.stayConnected(them?.name?.split(' ')[0] ?? '')}</p>
+            <p className="text-xs text-[#9b9590] mb-3">{t.saveNumber}</p>
             <div className="space-y-2">
 
               {/* Add to Contacts — saves THEIR number to YOUR phone */}
@@ -453,7 +453,7 @@ export default function MatchPage() {
                     <line x1="19" y1="8" x2="19" y2="14"/>
                     <line x1="22" y1="11" x2="16" y2="11"/>
                   </svg>
-                  Add {them.name.split(' ')[0]} to contacts
+                  {t.addContact(them.name.split(' ')[0])}
                 </button>
               )}
 
@@ -476,8 +476,8 @@ export default function MatchPage() {
           {/* Navigation */}
           {mapsUrl && dateCard && (
             <div className="bg-white border border-[#e8e6e1] rounded-2xl p-4 mb-4 text-left">
-              <p className="text-sm font-medium text-[#111] mb-1">want directions? 🗺️</p>
-              <p className="text-xs text-[#9b9590] mb-3">navigate to {dateCard.venue}</p>
+              <p className="text-sm font-medium text-[#111] mb-1">{t.wantDirections}</p>
+              <p className="text-xs text-[#9b9590] mb-3">{t.navigateTo(dateCard.venue)}</p>
               <div className="flex gap-2">
                 <a
                   href={mapsUrl}
@@ -503,7 +503,7 @@ export default function MatchPage() {
             onClick={() => router.push('/feed')}
             className="w-full border border-[#e8e6e1] rounded-xl py-3 text-sm text-[#6b6760] active:scale-[0.98] transition-transform"
           >
-            back to the feed
+            {t.backFeed}
           </button>
         </div>
       </main>
@@ -512,15 +512,16 @@ export default function MatchPage() {
 
   // ── Date card not ready yet ───────────────────────────────────────────────
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+    <main className="relative min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
+      <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
       <div className="w-full max-w-[360px] text-center">
         <div className="text-4xl mb-4">⏳</div>
-        <p className="text-sm text-[#9b9590] mb-6">AI is still cooking... give it a sec 🍳</p>
+        <p className="text-sm text-[#9b9590] mb-6">{t.stillCooking}</p>
         <button
           onClick={() => setScreen('loading')}
           className="w-full bg-[#111] text-white rounded-xl py-3 text-sm"
         >
-          Check again
+          {t.checkAgain}
         </button>
       </div>
     </main>

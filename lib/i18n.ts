@@ -1,4 +1,6 @@
-// Shared language helpers + feed dictionary.
+// Shared language helpers + dictionaries.
+import { useEffect, useState } from 'react'
+
 export type Lang = 'en' | 'zh'
 
 export function readLang(): Lang {
@@ -9,6 +11,18 @@ export function readLang(): Lang {
 
 export function writeLang(lang: Lang) {
   if (typeof window !== 'undefined') localStorage.setItem('maple_lang', lang)
+}
+
+// Hook: read saved language on mount + a toggle that persists.
+export function useLang(): [Lang, () => void] {
+  const [lang, setLang] = useState<Lang>('en')
+  useEffect(() => { setLang(readLang()) }, [])
+  const toggle = () => setLang(prev => {
+    const next: Lang = prev === 'en' ? 'zh' : 'en'
+    writeLang(next)
+    return next
+  })
+  return [lang, toggle]
 }
 
 // Feed / post-login strings.
@@ -156,3 +170,141 @@ export const FEED = {
 }
 
 export type FeedT = typeof FEED.en
+
+// ─── Profile page ─────────────────────────────────────────────────────────────
+export const PROFILE = {
+  en: {
+    back: '← back',
+    setupTitle: 'One last thing 👋', setupSub: "add a photo so people know it's you",
+    uploading: 'Uploading…', changePhoto: 'Change photo 📷', addPhoto: 'Add a photo 📷',
+    looksGood: 'looks good, continue →', skip: 'skip for now',
+    email: 'Email', gender: 'Gender', lookingFor: 'Looking for', spots: 'Spots', logout: 'log out',
+    tSelectImage: 'Please select an image', tTooLarge: 'Photo too large — max 5MB',
+    tUploadFail: 'Upload failed — try again', tSaved: 'Photo saved ✓',
+  },
+  zh: {
+    back: '← 返回',
+    setupTitle: '最后一步 👋', setupSub: '加一张照片，让大家认出你',
+    uploading: '上传中…', changePhoto: '换一张照片 📷', addPhoto: '加一张照片 📷',
+    looksGood: '不错，继续 →', skip: '暂时跳过',
+    email: '邮箱', gender: '性别', lookingFor: '想认识', spots: '常去地点', logout: '退出登录',
+    tSelectImage: '请选择一张图片', tTooLarge: '图片太大 — 最大 5MB',
+    tUploadFail: '上传失败 — 请重试', tSaved: '照片已保存 ✓',
+  },
+}
+
+// ─── Match page ───────────────────────────────────────────────────────────────
+export const MATCH = {
+  en: {
+    revealTitle: "it's giving mutual 🍁", revealSub: 'you both shot your shot. respect.',
+    yourPerson: 'your person 🫶', letAiCook: 'let AI cook the date →', sameTime: 'they found out at the exact same time 👀',
+    step1: 'Match detected', step2: 'Fetching profiles', step3: 'Reading calendars & parsing schedules',
+    step4: 'Finding best venue', step5: 'Generating date plan', step6: 'Sending confirmation',
+    cookingTitle: 'AI is literally cooking rn', cookingSub: 'planning something just for you two ✨',
+    now: 'now', giveItSec: "give it ~10 seconds, we're not doing this mid 💅",
+    dateCooked: 'the date is cooked. 🍁', personalized: 'personalized to both your schedules, no cap.',
+    when: 'When', where: 'Where', walkEach: (n: number) => `~${n} min walk each`, openMaps: 'open in maps →',
+    inCommon: 'What you have in common', convStarter: 'Conversation starter',
+    imIn: "i'm in, let's go ✓", nah: 'nah not feeling it', ghost: "ghost 3x and you're benched for a week 💀",
+    happening: "it's happening bestie 🎉", bothConfirmed: "both of you confirmed. don't be late 😤",
+    stayConnected: (name: string) => `stay connected with ${name} 📱`, saveNumber: 'save their number or hit them up directly',
+    addContact: (name: string) => `Add ${name} to contacts`,
+    wantDirections: 'want directions? 🗺️', navigateTo: (v: string) => `navigate to ${v}`, backFeed: 'back to the feed',
+    stillCooking: 'AI is still cooking… give it a sec 🍳', checkAgain: 'Check again',
+    cancelled3: "You've cancelled 3 dates. Your account is paused for 1 week.",
+  },
+  zh: {
+    revealTitle: '双向奔赴 🍁', revealSub: '你们都勇敢表白了，respect。',
+    yourPerson: '你的那个人 🫶', letAiCook: '让 AI 安排约会 →', sameTime: '对方在同一刻也知道了 👀',
+    step1: '检测到匹配', step2: '读取资料', step3: '读取日历、解析日程',
+    step4: '寻找最佳地点', step5: '生成约会方案', step6: '发送确认',
+    cookingTitle: 'AI 正在火力全开', cookingSub: '正在为你俩量身规划 ✨',
+    now: '进行中', giveItSec: '给它大约 10 秒，咱不糊弄 💅',
+    dateCooked: '约会安排好了。🍁', personalized: '根据你们俩的日程定制，绝不糊弄。',
+    when: '时间', where: '地点', walkEach: (n: number) => `各步行约 ${n} 分钟`, openMaps: '在地图中打开 →',
+    inCommon: '你们的共同点', convStarter: '破冰话题',
+    imIn: '我可以，走起 ✓', nah: '算了，没感觉', ghost: '放鸽子 3 次，停用一周 💀',
+    happening: '成了！🎉', bothConfirmed: '你俩都确认了，别迟到 😤',
+    stayConnected: (name: string) => `和 ${name} 保持联系 📱`, saveNumber: '保存号码，或直接联系 ta',
+    addContact: (name: string) => `把 ${name} 加入通讯录`,
+    wantDirections: '需要导航吗？🗺️', navigateTo: (v: string) => `导航到 ${v}`, backFeed: '返回 feed',
+    stillCooking: 'AI 还在忙… 稍等一下 🍳', checkAgain: '再看看',
+    cancelled3: '你已取消 3 次约会，账号暂停一周。',
+  },
+}
+
+// ─── Verify page ──────────────────────────────────────────────────────────────
+export const VERIFY = {
+  en: {
+    verifying: 'Verifying your email…', youreIn: "you're in!", takingFeed: 'taking you to the feed…',
+    expired: 'link expired', invalid: 'this link is invalid or already used', backSignup: 'back to sign up',
+  },
+  zh: {
+    verifying: '正在验证你的邮箱…', youreIn: '验证成功！', takingFeed: '正在带你进入 feed…',
+    expired: '链接已失效', invalid: '链接无效或已被使用', backSignup: '返回注册',
+  },
+}
+
+// ─── Legal pages (privacy / terms) ────────────────────────────────────────────
+type Section = { h: string; body: string; list?: string[]; intro?: string }
+type Legal = { title: string; updated: string; back: string; sections: Section[] }
+
+export const PRIVACY: Record<Lang, Legal> = {
+  en: {
+    title: 'Privacy Policy', updated: 'Last updated: April 30, 2026', back: '← back to Maple',
+    sections: [
+      { h: '1. Who We Are', body: 'Maple ("we", "us", "our") is a campus dating app exclusively for students at the Claremont Colleges (Pitzer, Pomona, Scripps, Claremont McKenna, and Harvey Mudd). We are operated by Maple Inc. and can be reached at hello@maplemeet.ai.' },
+      { h: '2. Information We Collect', body: '', list: ['Account info: your name, school email address, gender, dating preferences, and phone number.', 'Location: approximate GPS coordinates, used only to suggest nearby date venues. Never stored long-term or shared.', 'Google Contacts: contact names and email addresses (if you connect your email), used only to show you classmates already on Maple. Never stored on our servers.', 'Usage data: swipes and match interactions, stored to power the matching algorithm.'] },
+      { h: '3. How We Use Your Information', body: '', list: ['To show you compatible matches on campus.', 'To send you SMS notifications about matches (via Twilio).', 'To plan date suggestions using your approximate location.', 'To verify you are a current 5C student.'] },
+      { h: '4. Information Sharing', body: 'We do not sell your personal data. We share data only with:', list: ['Supabase — database hosting.', 'Twilio — SMS delivery for verification codes and match notifications.', 'Google — Maps API for date venue suggestions.', 'Anthropic / OpenAI — AI-powered date planning (no personal identifiers sent).'] },
+      { h: '5. Data Retention', body: 'Your account data is retained as long as your account exists. You may delete your account at any time by emailing hello@maplemeet.ai. Location data is not stored beyond each session.' },
+      { h: '6. Security', body: 'We use industry-standard security practices including encrypted connections (HTTPS) and row-level security on our database. Phone numbers are used only for verification and match notifications.' },
+      { h: '7. Your Rights', body: 'You may request access to, correction of, or deletion of your personal data at any time by contacting us at hello@maplemeet.ai.' },
+      { h: '8. Contact', body: 'Questions? Email us at hello@maplemeet.ai.' },
+    ],
+  },
+  zh: {
+    title: '隐私政策', updated: '最近更新：2026 年 4 月 30 日', back: '← 返回 Maple',
+    sections: [
+      { h: '1. 我们是谁', body: 'Maple（"我们"）是一款仅面向克莱蒙特联盟院校（Pitzer、Pomona、Scripps、Claremont McKenna、Harvey Mudd）学生的校园约会应用，由 Maple Inc. 运营。联系方式：hello@maplemeet.ai。' },
+      { h: '2. 我们收集的信息', body: '', list: ['账号信息：你的姓名、学校邮箱、性别、约会偏好和手机号。', '位置：大致的 GPS 坐标，仅用于推荐附近的约会地点，不会长期存储或共享。', 'Google 通讯录：联系人姓名和邮箱（若你连接邮箱），仅用于向你展示已在 Maple 的同学，不会存储在我们的服务器上。', '使用数据：滑动和匹配互动，用于支撑匹配算法。'] },
+      { h: '3. 我们如何使用这些信息', body: '', list: ['在校园里为你展示合适的匹配对象。', '通过短信（Twilio）向你发送匹配通知。', '基于你的大致位置规划约会建议。', '验证你是在校 5C 学生。'] },
+      { h: '4. 信息共享', body: '我们不会出售你的个人数据。我们仅与以下方共享数据：', list: ['Supabase —— 数据库托管。', 'Twilio —— 发送验证码和匹配通知短信。', 'Google —— 用于约会地点建议的地图 API。', 'Anthropic / OpenAI —— AI 约会规划（不发送任何个人身份信息）。'] },
+      { h: '5. 数据保留', body: '只要你的账号存在，账号数据就会保留。你可随时发邮件至 hello@maplemeet.ai 删除账号。位置数据不会在单次会话之外存储。' },
+      { h: '6. 安全', body: '我们采用行业标准的安全措施，包括加密连接（HTTPS）和数据库行级安全。手机号仅用于验证和匹配通知。' },
+      { h: '7. 你的权利', body: '你可随时通过 hello@maplemeet.ai 联系我们，要求访问、更正或删除你的个人数据。' },
+      { h: '8. 联系我们', body: '有问题？发邮件至 hello@maplemeet.ai。' },
+    ],
+  },
+}
+
+export const TERMS: Record<Lang, Legal> = {
+  en: {
+    title: 'Terms of Service', updated: 'Last updated: April 30, 2026', back: '← back to Maple',
+    sections: [
+      { h: '1. Eligibility', body: 'Maple is exclusively for current students of the Claremont Colleges (Pitzer, Pomona, Scripps, Claremont McKenna, and Harvey Mudd). You must be at least 18 years old and have a valid 5C student email address to use Maple.' },
+      { h: '2. Your Account', body: 'You are responsible for maintaining the accuracy of your account information. You may not create an account on behalf of someone else or use a school email you do not own. One account per person.' },
+      { h: '3. Acceptable Use', body: 'You agree not to:', list: ['Harass, threaten, or harm other users.', 'Use Maple for any commercial or non-personal purpose.', 'Attempt to reverse-engineer or abuse the platform.', 'Create fake accounts or misrepresent your identity.', "Share another user's information without their consent."] },
+      { h: '4. Matches and Interactions', body: 'Maple shows you other students anonymously until a mutual match occurs. Match notifications are sent via SMS. We do not guarantee any specific number of matches or outcomes.' },
+      { h: '5. AI-Planned Dates', body: 'When you and another user match, Maple may suggest a date venue using AI and location data. These suggestions are provided for convenience only and are not guarantees of availability, safety, or suitability.' },
+      { h: '6. Termination', body: 'We reserve the right to suspend or terminate accounts that violate these terms. You may delete your account at any time by contacting hello@maplemeet.ai.' },
+      { h: '7. Disclaimer', body: 'Maple is provided "as is" without warranties of any kind. We are not responsible for interactions between users that occur outside the platform. Use good judgment and stay safe.' },
+      { h: '8. Changes', body: 'We may update these terms from time to time. Continued use of Maple after changes constitutes acceptance of the new terms.' },
+      { h: '9. Contact', body: 'Questions? Email us at hello@maplemeet.ai.' },
+    ],
+  },
+  zh: {
+    title: '服务条款', updated: '最近更新：2026 年 4 月 30 日', back: '← 返回 Maple',
+    sections: [
+      { h: '1. 资格', body: 'Maple 仅面向克莱蒙特联盟院校（Pitzer、Pomona、Scripps、Claremont McKenna、Harvey Mudd）的在校学生。你必须年满 18 岁，并拥有有效的 5C 学生邮箱才能使用 Maple。' },
+      { h: '2. 你的账号', body: '你有责任保持账号信息的准确性。你不得代替他人创建账号，或使用不属于你的学校邮箱。每人仅限一个账号。' },
+      { h: '3. 可接受的使用', body: '你同意不会：', list: ['骚扰、威胁或伤害其他用户。', '将 Maple 用于任何商业或非个人目的。', '试图逆向工程或滥用平台。', '创建虚假账号或冒充身份。', '未经同意分享其他用户的信息。'] },
+      { h: '4. 匹配与互动', body: '在双向匹配成功前，Maple 会匿名地向你展示其他学生。匹配通知通过短信发送。我们不保证任何特定数量的匹配或结果。' },
+      { h: '5. AI 规划的约会', body: '当你与另一位用户匹配时，Maple 可能会用 AI 和位置数据推荐约会地点。这些建议仅为方便而提供，不保证可用性、安全性或合适性。' },
+      { h: '6. 终止', body: '对于违反本条款的账号，我们保留暂停或终止的权利。你可随时通过 hello@maplemeet.ai 联系我们删除账号。' },
+      { h: '7. 免责声明', body: 'Maple 按"现状"提供，不附带任何形式的保证。对于在平台外发生的用户互动，我们不承担责任。请审慎判断、注意安全。' },
+      { h: '8. 变更', body: '我们可能会不时更新本条款。变更后继续使用 Maple 即视为接受新条款。' },
+      { h: '9. 联系我们', body: '有问题？发邮件至 hello@maplemeet.ai。' },
+    ],
+  },
+}
