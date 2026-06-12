@@ -32,11 +32,34 @@ function loadMaps(): Promise<void> {
   return mapsPromise
 }
 
-export default function SpotPicker({ spots, onAdd, onRemove }: {
+const STR = {
+  en: {
+    search: '🔍 Search a place — dorm, library, gym…',
+    loading: 'loading map…', myLoc: '📍 my location',
+    mapErr: "Map couldn't load — type your spot below instead.",
+    manualPh: 'e.g. Honnold Library', add: 'add',
+    added: 'added ✓', max: 'max 5', addThis: '+ add this spot',
+    hint: (r: number) => `Tap the map or search to drop a pin. The circle ≈ ${r}m around your spot. Add up to 5.`,
+    denied: 'Location permission denied.',
+  },
+  zh: {
+    search: '🔍 搜索地点 — 宿舍、图书馆、健身房…',
+    loading: '地图加载中…', myLoc: '📍 我的位置',
+    mapErr: '地图加载失败 — 请在下方手动输入地点。',
+    manualPh: '例如：图书馆', add: '添加',
+    added: '已添加 ✓', max: '最多 5 个', addThis: '+ 添加这个地点',
+    hint: (r: number) => `点地图或搜索来放一个图钉。圆圈约覆盖 ${r}m。最多添加 5 个。`,
+    denied: '定位权限被拒绝。',
+  },
+}
+
+export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
   spots: string[]
   onAdd: (name: string) => void
   onRemove: (name: string) => void
+  lang?: 'en' | 'zh'
 }) {
+  const L = STR[lang]
   const mapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const objs = useRef<any>({})
@@ -102,7 +125,7 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
       setPos(CAMPUS)
       setReady(true)
     }).catch(() => {
-      setErr("Map couldn't load — type your spot below instead.")
+      setErr(L.mapErr)
     })
     return () => { cancelled = true }
   }, [])
@@ -118,7 +141,7 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
           setActiveName(s === 'OK' && res?.[0] ? (res[0].formatted_address?.split(',')[0] || 'My location') : 'My location')
         })
       },
-      () => setErr('Location permission denied.'),
+      () => setErr(L.denied),
       { enableHighAccuracy: true, timeout: 8000 }
     )
   }
@@ -132,7 +155,7 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
       <input
         ref={inputRef}
         type="text"
-        placeholder="🔍 Search a place — dorm, library, gym…"
+        placeholder={L.search}
         className="w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none focus:border-[#111] transition-colors"
       />
 
@@ -140,14 +163,14 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
       <div className="relative">
         <div ref={mapRef} className="w-full h-[240px] rounded-xl overflow-hidden border border-[#e8e6e1] bg-[#ecebe7]" />
         {!ready && !err && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-[#9b9590] pointer-events-none">loading map…</div>
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-[#9b9590] pointer-events-none">{L.loading}</div>
         )}
         {ready && (
           <button
             type="button" onClick={useMyLocation}
             className="absolute bottom-2 right-2 bg-white border border-[#e8e6e1] rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#6b6760] shadow-sm hover:border-[#111] transition-colors"
           >
-            📍 my location
+            {L.myLoc}
           </button>
         )}
       </div>
@@ -157,11 +180,11 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
           <input
             type="text" value={manual} onChange={(e) => setManual(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && manual.trim() && !full) { onAdd(manual.trim()); setManual('') } }}
-            placeholder="e.g. Honnold Library"
+            placeholder={L.manualPh}
             className="flex-1 bg-white border border-[#e8e6e1] rounded-xl px-3 py-2.5 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none focus:border-[#111]"
           />
           <button onClick={() => { if (manual.trim() && !full) { onAdd(manual.trim()); setManual('') } }} disabled={!manual.trim() || full}
-            className="px-4 rounded-xl bg-[#111] text-white text-sm font-medium disabled:opacity-30">add</button>
+            className="px-4 rounded-xl bg-[#111] text-white text-sm font-medium disabled:opacity-30">{L.add}</button>
         </div>
       )}
 
@@ -175,7 +198,7 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
         >
           <span className="text-[#111] font-medium truncate">📍 {activeName}</span>
           <span className="text-xs text-[#6b6760] shrink-0">
-            {alreadyAdded ? 'added ✓' : full ? 'max 5' : '+ add this spot'}
+            {alreadyAdded ? L.added : full ? L.max : L.addThis}
           </span>
         </button>
       )}
@@ -193,7 +216,7 @@ export default function SpotPicker({ spots, onAdd, onRemove }: {
       )}
 
       <p className="text-[11px] text-[#c5c0bb] leading-snug">
-        Tap the map or search to drop a pin. The circle ≈ {RADIUS_M}m around your spot. Add up to 5.
+        {L.hint(RADIUS_M)}
       </p>
     </div>
   )
