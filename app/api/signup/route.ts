@@ -29,6 +29,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
   }
 
+  // One account per phone number (app-level check; DB unique index is the backstop).
+  const { data: phoneTaken } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('phone', phone)
+    .maybeSingle()
+  if (phoneTaken) {
+    return NextResponse.json({ error: 'This phone number is already registered. Log in instead.' }, { status: 409 })
+  }
+
   const password_hash = hashPassword(String(password))
 
   const { data, error } = await supabaseAdmin
@@ -49,7 +59,13 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'This email is already registered. Log in instead.' }, { status: 409 })
+      const dup = `${error.message} ${error.details ?? ''}`.toLowerCase()
+      const isPhone = dup.includes('phone')
+      return NextResponse.json({
+        error: isPhone
+          ? 'This phone number is already registered. Log in instead.'
+          : 'This email is already registered. Log in instead.',
+      }, { status: 409 })
     }
     console.error('[signup] insert error:', error)
     return NextResponse.json({ error: 'Sign up failed. Try again.' }, { status: 500 })

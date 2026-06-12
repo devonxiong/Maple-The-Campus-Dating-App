@@ -1072,13 +1072,19 @@ export default function FeedPage() {
                 )}
               </div>
 
-              {/* Profile link */}
-              <div className="pt-2">
+              {/* Profile link + logout */}
+              <div className="pt-2 space-y-2">
                 <button
                   onClick={() => { setShowSettings(false); router.push('/profile') }}
                   className="w-full text-xs text-[#9b9590] py-2 hover:text-[#111] transition-colors"
                 >
                   go to my profile →
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-2.5 border border-[#e8e6e1] rounded-xl text-xs text-[#9b9590] hover:border-red-300 hover:text-red-400 transition-all active:scale-[0.98]"
+                >
+                  log out
                 </button>
               </div>
             </div>
