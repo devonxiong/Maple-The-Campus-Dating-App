@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { buildFeed, buildSwipedSet, schoolFromEmail, PresenceMap } from '@/lib/score'
 import { User, FeedCard, Match, Notification } from '@/types'
+import { Lang, readLang, writeLang, FEED, FeedT } from '@/lib/i18n'
 
 declare global {
   interface Window {
@@ -73,6 +74,7 @@ export default function FeedPage() {
   const [presenceSnapshot, setPresenceSnapshot] = useState<PresenceMap>(new Map())
   const tokenClientRef = useRef<{ requestAccessToken: () => void } | null>(null)
   const [darkMode, setDarkMode] = useState(false)
+  const [lang, setLang] = useState<Lang>('en')
   const [showSettings, setShowSettings] = useState(false)
   const [geotracking, setGeotracking] = useState(true)
   const [agentEnabled, setAgentEnabled] = useState(true)
@@ -86,14 +88,24 @@ export default function FeedPage() {
   const [showBlindConsent, setShowBlindConsent] = useState(false)
   const [blindBoxLoading, setBlindBoxLoading] = useState(false)
 
-  // Load dark mode preference
+  // Load dark mode + language preference
   useEffect(() => {
     const saved = localStorage.getItem('maple_dark')
     if (saved === 'true') {
       document.documentElement.classList.add('dark')
       setDarkMode(true)
     }
+    setLang(readLang())
   }, [])
+
+  const t = FEED[lang]
+  function toggleLang() {
+    setLang(prev => {
+      const next: Lang = prev === 'en' ? 'zh' : 'en'
+      writeLang(next)
+      return next
+    })
+  }
 
   function toggleDark() {
     const next = !darkMode
@@ -141,7 +153,7 @@ export default function FeedPage() {
       setBellStatus('off')
     }
     setSavingSettings(false)
-    showToast('Settings saved ✓')
+    showToast(t.tSettingsSaved)
   }
 
   // Bell: geolocation → update user_presence every 30s
@@ -188,16 +200,16 @@ export default function FeedPage() {
               .eq('target_id', userId).eq('status', 'pending')
               .order('created_at', { ascending: false }).limit(1).maybeSingle()
               .then(({ data }) => { if (data) setPendingBlindRequest(data) })
-            showToast('🎁 Someone sent you a blind date request!')
+            showToast(t.tBlindIncoming)
           } else if (notif.message === '__blind_date_accepted__') {
-            showToast('🎁 They said yes!')
+            showToast(t.tBlindYes)
             setTimeout(() => router.push('/match'), 1200)
           } else if (notif.message === '__blind_date_declined__') {
             setSentBlindRequest(null)
-            showToast('🎁 They passed this time — try again?')
+            showToast(t.tBlindPassed)
           } else if (notif.type === 'bell') {
             setBellStatus('triggered')
-            showToast(notif.message || 'Someone nearby likes you 🍁')
+            showToast(notif.message || t.tNearbyLikes)
             setTimeout(() => setBellStatus(s => s === 'triggered' ? 'watching' : s), 10000)
           }
         }
@@ -398,7 +410,7 @@ export default function FeedPage() {
       setKnownOff(offMaple.slice(0, 20)) // cap at 20 for invite list
       setEmailConnected(true)
     } catch {
-      showToast('Failed to read contacts')
+      showToast(t.tFailContacts)
     } finally {
       setContactsLoading(false)
     }
@@ -406,10 +418,10 @@ export default function FeedPage() {
 
   function connectEmail() {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    if (!clientId) { showToast('Google not configured'); return }
+    if (!clientId) { showToast(t.tGoogleNot); return }
 
     if (!window.google) {
-      showToast('Loading Google... try again')
+      showToast(t.tGoogleLoad)
       return
     }
 
@@ -418,7 +430,7 @@ export default function FeedPage() {
       scope: 'https://www.googleapis.com/auth/contacts.readonly',
       callback: (resp) => {
         if (resp.access_token) fetchContacts(resp.access_token)
-        else showToast('Google sign-in cancelled')
+        else showToast(t.tGoogleCancel)
       },
     })
     tokenClientRef.current.requestAccessToken()
@@ -431,18 +443,18 @@ export default function FeedPage() {
     try {
       const { error } = await supabase.from('swipes')
         .upsert({ from_user: userId, to_user: targetId, sentiment }, { onConflict: 'from_user,to_user' })
-      if (error) { showToast('Something went wrong.'); return }
-      if (sentiment === 'like') showToast('❤️ shot sent')
-      if (sentiment === 'pass') showToast('👋 gone for 30 days')
-      if (sentiment === 'block') showToast('🚫 blocked — they\'re gone for good')
+      if (error) { showToast(t.tOops); return }
+      if (sentiment === 'like') showToast(t.tShotSent)
+      if (sentiment === 'pass') showToast(t.tGone30)
+      if (sentiment === 'block') showToast(t.tBlocked)
       if (isKnown) setKnownOnMaple((f) => f.filter((c) => c.user.id !== targetId))
       else setFeed((f) => f.filter((c) => c.user.id !== targetId))
     } catch {
-      showToast('Something went wrong.')
+      showToast(t.tOops)
     } finally {
       setSwipeLoading(null)
     }
-  }, [swipeLoading])
+  }, [swipeLoading, t])
 
   const sendInvite = useCallback(async (contact: ContactNotOnMaple) => {
     if (inviteLoading || !currentUser) return
@@ -459,13 +471,13 @@ export default function FeedPage() {
         }),
       })
       setKnownOff((prev) => prev.map((c) => c.email === contact.email ? { ...c, invited: true } : c))
-      showToast(`✉️ Invited ${contact.name.split(' ')[0]}`)
+      showToast(t.tInvited(contact.name.split(' ')[0]))
     } catch {
-      showToast('Failed to send invite')
+      showToast(t.tFailInvite)
     } finally {
       setInviteLoading(null)
     }
-  }, [inviteLoading, currentUser])
+  }, [inviteLoading, currentUser, t])
 
   async function openBlindBox() {
     if (!currentUser || blindBoxLoading) return
@@ -478,19 +490,19 @@ export default function FeedPage() {
       })
       const data = await res.json()
       if (data.error === 'no_eligible_targets') {
-        showToast('No one available right now — try later')
+        showToast(t.tNoOne)
       } else if (data.error === 'already_pending') {
         setSentBlindRequest({ id: data.request_id, status: 'pending' })
-        showToast('You already have one waiting 🎁')
+        showToast(t.tAlreadyWaiting)
       } else if (data.success) {
         setSentBlindRequest({ id: data.request_id, status: 'pending' })
-        showToast('🎁 Sent! Waiting for them...')
+        showToast(t.tBlindSent)
       } else if (data.error) {
-        showToast('Could not send — try again')
+        showToast(t.tCouldNotSend)
         console.error('[blind-date] error:', data.error)
       }
     } catch {
-      showToast('Something went wrong')
+      showToast(t.tOops2)
     } finally {
       setBlindBoxLoading(false)
       setShowBlindConsent(false)
@@ -512,10 +524,10 @@ export default function FeedPage() {
         router.push('/match')
       } else {
         setPendingBlindRequest(null)
-        showToast(accept ? '🎁 On your way!' : 'Maybe next time')
+        showToast(accept ? t.tOnYourWay : t.tMaybeNext)
       }
     } catch {
-      showToast('Something went wrong')
+      showToast(t.tOops2)
     } finally {
       setBlindBoxLoading(false)
     }
@@ -532,9 +544,9 @@ export default function FeedPage() {
       })
       setFeed(f => f.filter(c => c.user.id !== reportTarget))
       setKnownOnMaple(f => f.filter(c => c.user.id !== reportTarget))
-      showToast('reported & blocked')
+      showToast(t.tReported)
     } catch {
-      showToast('something went wrong')
+      showToast(t.tOops2)
     } finally {
       setReportLoading(false)
       setReportTarget(null)
@@ -552,8 +564,8 @@ export default function FeedPage() {
   async function sendDirectInvite() {
     const email = directInviteEmail.trim().toLowerCase()
     if (!email || directInviteLoading) return
-    if (!email.endsWith('.edu')) { showToast('needs to be a .edu email'); return }
-    if (directInviteSent.includes(email)) { showToast('already invited!'); return }
+    if (!email.endsWith('.edu')) { showToast(t.tNeedEdu); return }
+    if (directInviteSent.includes(email)) { showToast(t.tAlreadyInvited); return }
     setDirectInviteLoading(true)
     try {
       await fetch('/api/invite', {
@@ -567,9 +579,9 @@ export default function FeedPage() {
       })
       setDirectInviteSent(prev => [...prev, email])
       setDirectInviteEmail('')
-      showToast(`✉️ invite sent to ${email.split('@')[0]}`)
+      showToast(t.tInviteSentTo(email.split('@')[0]))
     } catch {
-      showToast('failed to send invite')
+      showToast(t.tFailInvite2)
     } finally {
       setDirectInviteLoading(false)
     }
@@ -580,7 +592,7 @@ export default function FeedPage() {
       <main className="min-h-screen flex items-center justify-center bg-[#f8f7f4]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-[#111] border-t-transparent animate-spin" />
-          <p className="text-sm text-[#9b9590]">Loading...</p>
+          <p className="text-sm text-[#9b9590]">{t.loading}</p>
         </div>
       </main>
     )
@@ -597,9 +609,17 @@ export default function FeedPage() {
               <img src="/maple-logo.svg" alt="Maple" className="w-7 h-7 object-contain" />
               <h1 className="text-lg font-semibold text-[#111]">Maple</h1>
             </div>
-            <p className="text-xs text-[#9b9590]">For the one you've seen a thousand times.</p>
+            <p className="text-xs text-[#9b9590]">{t.tagline}</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Language toggle */}
+            <button
+              onClick={toggleLang}
+              className="h-8 px-2.5 rounded-full flex items-center justify-center border border-[#e8e6e1] text-[11px] font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors"
+              title="Switch language"
+            >
+              {lang === 'en' ? '中文' : 'EN'}
+            </button>
             {/* Dark mode toggle */}
             <button
               onClick={toggleDark}
@@ -638,18 +658,18 @@ export default function FeedPage() {
         {contactsLoading && (
           <div className="flex items-center gap-2 text-xs text-[#9b9590] mb-5 px-1">
             <div className="w-3 h-3 rounded-full border border-[#9b9590] border-t-transparent animate-spin" />
-            checking who you know...
+            {t.checkingKnown}
           </div>
         )}
 
         {/* Action legend */}
         {(feed.length > 0 || knownOnMaple.length > 0) && (
           <div className="flex items-center justify-center gap-3 mb-4 px-1">
-            <span className="text-[10px] text-[#9b9590]">🍁 <span className="font-medium text-[#6b6760]">shoot your shot</span> — only they'll know</span>
+            <span className="text-[10px] text-[#9b9590]">🍁 <span className="font-medium text-[#6b6760]">{t.legShoot}</span> — {t.legShootSub}</span>
             <span className="text-[#ddd]">·</span>
-            <span className="text-[10px] text-[#9b9590]">👋 <span className="font-medium text-[#6b6760]">not for me</span> — 30-day break</span>
+            <span className="text-[10px] text-[#9b9590]">👋 <span className="font-medium text-[#6b6760]">{t.legPass}</span> — {t.legPassSub}</span>
             <span className="text-[#ddd]">·</span>
-            <span className="text-[10px] text-[#9b9590]">🚫 block — forever</span>
+            <span className="text-[10px] text-[#9b9590]">🚫 {t.legBlock}</span>
           </div>
         )}
 
@@ -660,10 +680,10 @@ export default function FeedPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xl">🎁</span>
-                <p className="text-sm font-semibold text-amber-900">You have a blind date request</p>
+                <p className="text-sm font-semibold text-amber-900">{t.blindReqTitle}</p>
               </div>
               <p className="text-xs text-amber-700 leading-relaxed mb-4">
-                Someone from your campus wants to meet you — anonymously. Say yes and you'll both find out who each other is.
+                {t.blindReqDesc}
               </p>
               <div className="flex gap-2">
                 <button
@@ -671,14 +691,14 @@ export default function FeedPage() {
                   disabled={blindBoxLoading}
                   className="flex-1 py-2.5 rounded-xl border border-amber-200 text-xs font-medium text-amber-700 disabled:opacity-40 active:scale-95 transition-all"
                 >
-                  not this time
+                  {t.notThisTime}
                 </button>
                 <button
                   onClick={() => respondToBlindDate(true)}
                   disabled={blindBoxLoading}
                   className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-semibold disabled:opacity-40 active:scale-95 transition-all"
                 >
-                  {blindBoxLoading ? '···' : "I'm in 🎁"}
+                  {blindBoxLoading ? '···' : t.imIn}
                 </button>
               </div>
             </div>
@@ -689,7 +709,7 @@ export default function FeedPage() {
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
               <span className="text-sm">🔁</span>
               <p className="text-xs text-amber-700 leading-relaxed">
-                showing people you passed on before — maybe give them another look?
+                {t.secondChance}
               </p>
             </div>
           )}
@@ -698,8 +718,8 @@ export default function FeedPage() {
           {knownOnMaple.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3 px-1">
-                <span className="text-xs font-semibold text-[#111]">👋 people you actually know</span>
-                <span className="text-xs text-[#9b9590]">— already on Maple</span>
+                <span className="text-xs font-semibold text-[#111]">{t.knownTitle}</span>
+                <span className="text-xs text-[#9b9590]">{t.knownSub}</span>
               </div>
               <div className="space-y-3">
                 {knownOnMaple.map((card) => (
@@ -709,6 +729,7 @@ export default function FeedPage() {
                     swipeLoading={swipeLoading}
                     onSwipe={(s) => swipe(card.user.id, s, true)}
                     onReport={() => setReportTarget(card.user.id)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -720,8 +741,8 @@ export default function FeedPage() {
             <section>
               {knownOnMaple.length > 0 && (
                 <div className="flex items-center gap-2 mb-3 px-1">
-                  <span className="text-xs font-semibold text-[#111]">✦ might know them</span>
-                  <span className="text-xs text-[#9b9590]">— same campus, just sayin</span>
+                  <span className="text-xs font-semibold text-[#111]">{t.maybeTitle}</span>
+                  <span className="text-xs text-[#9b9590]">{t.maybeSub}</span>
                 </div>
               )}
               <div className="space-y-3">
@@ -732,6 +753,7 @@ export default function FeedPage() {
                     swipeLoading={swipeLoading}
                     onSwipe={(s) => swipe(card.user.id, s, false)}
                     onReport={() => setReportTarget(card.user.id)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -742,8 +764,8 @@ export default function FeedPage() {
           {knownOff.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3 px-1">
-                <span className="text-xs font-semibold text-[#111]">✉️ get your friends in on this</span>
-                <span className="text-xs text-[#9b9590]">— they're missing out fr</span>
+                <span className="text-xs font-semibold text-[#111]">{t.inviteTitle}</span>
+                <span className="text-xs text-[#9b9590]">{t.inviteSub}</span>
               </div>
               <div className="space-y-2">
                 {knownOff.map((c) => (
@@ -762,7 +784,7 @@ export default function FeedPage() {
                         c.invited ? 'bg-[#f0ede8] text-[#9b9590]' : 'bg-[#111] text-white active:scale-95'
                       }`}
                     >
-                      {c.invited ? 'sent ✓' : inviteLoading === c.email ? '···' : 'invite 🍁'}
+                      {c.invited ? t.sent : inviteLoading === c.email ? '···' : t.invite}
                     </button>
                   </div>
                 ))}
@@ -775,27 +797,27 @@ export default function FeedPage() {
             <section className="pt-2">
               <div className="relative overflow-hidden bg-[#111] rounded-2xl px-5 py-5">
                 <div className="absolute -right-4 -top-4 text-[80px] opacity-10 select-none">🎁</div>
-                <p className="text-sm font-semibold text-white mb-1">blind date 🎁</p>
+                <p className="text-sm font-semibold text-white mb-1">{t.blindCard}</p>
                 {sentBlindRequest ? (
                   <>
                     <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
-                      Waiting for them to open their end... they'll get a mystery request.
+                      {t.blindWaiting}
                     </p>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                      <span className="text-xs text-amber-400">pending their response</span>
+                      <span className="text-xs text-amber-400">{t.blindPending}</span>
                     </div>
                   </>
                 ) : (
                   <>
                     <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
-                      We pick someone from your campus — could be a new face or someone you've passed. They decide too. Both say yes → you meet.
+                      {t.blindDesc}
                     </p>
                     <button
                       onClick={() => setShowBlindConsent(true)}
                       className="px-5 py-2.5 bg-amber-400 text-[#111] text-xs font-semibold rounded-xl active:scale-95 transition-all"
                     >
-                      open the box 🎁
+                      {t.openBox}
                     </button>
                   </>
                 )}
@@ -806,12 +828,12 @@ export default function FeedPage() {
           {/* Direct email invite */}
           <section className="pt-2">
             <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="text-xs font-semibold text-[#111]">✉️ invite someone</span>
-              <span className="text-xs text-[#9b9590]">— send them a link</span>
+              <span className="text-xs font-semibold text-[#111]">{t.inviteSomeone}</span>
+              <span className="text-xs text-[#9b9590]">{t.inviteSomeoneSub}</span>
             </div>
             <div className="bg-white border border-[#e8e6e1] rounded-2xl px-4 py-4">
               <p className="text-xs text-[#9b9590] mb-3 leading-relaxed">
-                Know someone who should be on here? Drop their .edu email and we'll send them an invite.
+                {t.inviteBody}
               </p>
               <div className="flex gap-2">
                 <input
@@ -819,7 +841,7 @@ export default function FeedPage() {
                   value={directInviteEmail}
                   onChange={e => setDirectInviteEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendDirectInvite()}
-                  placeholder="their@school.edu"
+                  placeholder={t.invitePh}
                   className="flex-1 text-sm border border-[#e8e6e1] rounded-xl px-3 py-2.5 outline-none focus:border-[#111] transition-colors placeholder:text-[#c5c0bb]"
                 />
                 <button
@@ -827,7 +849,7 @@ export default function FeedPage() {
                   disabled={directInviteLoading || !directInviteEmail.trim()}
                   className="px-4 py-2.5 bg-[#111] text-white text-xs font-medium rounded-xl disabled:opacity-40 active:scale-95 transition-all shrink-0"
                 >
-                  {directInviteLoading ? '···' : 'send 🍁'}
+                  {directInviteLoading ? '···' : t.send}
                 </button>
               </div>
               {directInviteSent.length > 0 && (
@@ -850,25 +872,25 @@ export default function FeedPage() {
 
               <div>
                 <p className="text-base font-semibold text-[#111] mb-1">
-                  you&apos;ve seen everyone 👀
+                  {t.seenEveryone}
                 </p>
                 <p className="text-xs text-[#9b9590] max-w-[240px] leading-relaxed">
-                  you&apos;ve gone through the whole pool. new people join every week — check back soon.
+                  {t.seenEveryoneSub}
                 </p>
               </div>
 
               <div className="w-full max-w-[280px] bg-white border border-[#e8e6e1] rounded-2xl px-5 py-4 text-left space-y-3">
-                <p className="text-xs font-medium text-[#111]">while you wait...</p>
+                <p className="text-xs font-medium text-[#111]">{t.whileYouWait}</p>
                 <div className="flex items-start gap-2.5">
                   <span className="text-sm mt-0.5">📨</span>
                   <p className="text-xs text-[#6b6760] leading-relaxed">
-                    invite your friends — the more people here, the better your odds
+                    {t.waitTip1}
                   </p>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <span className="text-sm mt-0.5">🍁</span>
                   <p className="text-xs text-[#6b6760] leading-relaxed">
-                    passes expire after 30 days — some people will come back around
+                    {t.waitTip2}
                   </p>
                 </div>
               </div>
@@ -878,12 +900,12 @@ export default function FeedPage() {
                   onClick={handleSecondChance}
                   className="w-full max-w-[280px] bg-[#111] text-white text-sm font-medium py-3 rounded-2xl active:scale-[0.98] transition-transform"
                 >
-                  see them again 🔁
+                  {t.seeAgain}
                 </button>
               )}
 
               <p className="text-[10px] text-[#c5c0bb]">
-                new pool refreshes weekly · last updated Friday
+                {t.poolRefresh}
               </p>
             </div>
           )}
@@ -902,26 +924,26 @@ export default function FeedPage() {
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowBlindConsent(false)} />
           <div className="relative w-full max-w-[420px] bg-[#111] rounded-t-3xl px-6 pt-6 pb-10 shadow-xl animate-fade-up">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-base font-semibold text-white">blind date 🎁</h2>
+              <h2 className="text-base font-semibold text-white">{t.blindCard}</h2>
               <button onClick={() => setShowBlindConsent(false)} className="text-[#6b6760] text-lg">✕</button>
             </div>
             <div className="space-y-3 mb-6">
               <div className="flex items-start gap-3">
                 <span className="text-base mt-0.5">🎲</span>
                 <p className="text-xs text-[#9b9590] leading-relaxed">
-                  We pick <strong className="text-white">one person</strong> from your campus at random — could be someone new, or someone you've passed before.
+                  {t.consentB1pre}<strong className="text-white">{t.consentB1bold}</strong>{t.consentB1post}
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-base mt-0.5">🤝</span>
                 <p className="text-xs text-[#9b9590] leading-relaxed">
-                  They get a mystery request. <strong className="text-white">They have to say yes too.</strong> No pressure on either side.
+                  {t.consentB2pre}<strong className="text-white">{t.consentB2bold}</strong>{t.consentB2post}
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-base mt-0.5">✨</span>
                 <p className="text-xs text-[#9b9590] leading-relaxed">
-                  If both of you say yes — it's a match. AI picks a spot and time for you.
+                  {t.consentB3}
                 </p>
               </div>
             </div>
@@ -930,13 +952,13 @@ export default function FeedPage() {
               disabled={blindBoxLoading}
               className="w-full py-3.5 bg-amber-400 text-[#111] text-sm font-semibold rounded-2xl disabled:opacity-40 active:scale-[0.98] transition-all"
             >
-              {blindBoxLoading ? '···' : "let's go 🎁"}
+              {blindBoxLoading ? '···' : t.letsGo}
             </button>
             <button
               onClick={() => setShowBlindConsent(false)}
               className="w-full mt-3 py-2.5 text-xs text-[#6b6760] hover:text-white transition-colors"
             >
-              maybe later
+              {t.maybeLater}
             </button>
           </div>
         </div>
@@ -948,24 +970,30 @@ export default function FeedPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => { setReportTarget(null); setReportReason('') }} />
           <div className="relative w-full max-w-[420px] bg-white rounded-t-3xl px-5 pt-5 pb-10 shadow-xl animate-fade-up">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-[#111]">Report this person</h2>
+              <h2 className="text-base font-semibold text-[#111]">{t.reportTitle}</h2>
               <button onClick={() => { setReportTarget(null); setReportReason('') }} className="text-[#9b9590] text-lg">✕</button>
             </div>
             <p className="text-xs text-[#9b9590] mb-4 leading-relaxed">
-              They'll be blocked immediately. We review every report within 24 hours.
+              {t.reportBody}
             </p>
             <div className="space-y-2 mb-5">
-              {['Inappropriate messages', 'Fake profile', 'Harassment', 'Spam', 'Other'].map(reason => (
+              {[
+                { v: 'Inappropriate messages', l: t.rInappropriate },
+                { v: 'Fake profile', l: t.rFake },
+                { v: 'Harassment', l: t.rHarass },
+                { v: 'Spam', l: t.rSpam },
+                { v: 'Other', l: t.rOther },
+              ].map(({ v, l }) => (
                 <button
-                  key={reason}
-                  onClick={() => setReportReason(reason)}
+                  key={v}
+                  onClick={() => setReportReason(v)}
                   className={`w-full text-left px-4 py-3 rounded-xl text-sm border transition-all ${
-                    reportReason === reason
+                    reportReason === v
                       ? 'border-[#111] bg-[#111] text-white font-medium'
                       : 'border-[#e8e6e1] text-[#6b6760] hover:border-[#111]'
                   }`}
                 >
-                  {reason}
+                  {l}
                 </button>
               ))}
             </div>
@@ -974,7 +1002,7 @@ export default function FeedPage() {
               disabled={!reportReason || reportLoading}
               className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-[0.98] transition-all"
             >
-              {reportLoading ? '···' : 'Submit report'}
+              {reportLoading ? '···' : t.submitReport}
             </button>
           </div>
         </div>
@@ -986,7 +1014,7 @@ export default function FeedPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowSettings(false)} />
           <div className="relative w-full max-w-[420px] bg-white rounded-t-3xl px-5 pt-5 pb-10 shadow-xl animate-fade-up">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-[#111]">Privacy Settings</h2>
+              <h2 className="text-base font-semibold text-[#111]">{t.privacy}</h2>
               <button onClick={() => setShowSettings(false)} className="text-[#9b9590] text-lg">✕</button>
             </div>
 
@@ -994,9 +1022,9 @@ export default function FeedPage() {
               {/* Geotracking */}
               <div className="flex items-start justify-between gap-4 py-3 border-b border-[#f0ede8]">
                 <div>
-                  <p className="text-sm font-medium text-[#111]">📍 Location tracking</p>
+                  <p className="text-sm font-medium text-[#111]">{t.locTrack}</p>
                   <p className="text-xs text-[#9b9590] mt-0.5 leading-relaxed">
-                    Lets AI suggest meetup spots near you both. Turn off to go invisible.
+                    {t.locTrackSub}
                   </p>
                 </div>
                 <button
@@ -1015,9 +1043,9 @@ export default function FeedPage() {
               {/* Agent search */}
               <div className="flex items-start justify-between gap-4 py-3 border-b border-[#f0ede8]">
                 <div>
-                  <p className="text-sm font-medium text-[#111]">🤖 AI date planning</p>
+                  <p className="text-sm font-medium text-[#111]">{t.aiPlan}</p>
                   <p className="text-xs text-[#9b9590] mt-0.5 leading-relaxed">
-                    AI picks a venue and time when you both match. Turn off to plan it yourself.
+                    {t.aiPlanSub}
                   </p>
                 </div>
                 <button
@@ -1035,9 +1063,9 @@ export default function FeedPage() {
 
               {/* Top spots */}
               <div className="py-3 border-b border-[#f0ede8]">
-                <p className="text-sm font-medium text-[#111] mb-0.5">📍 Your top spots</p>
+                <p className="text-sm font-medium text-[#111] mb-0.5">{t.topSpots}</p>
                 <p className="text-xs text-[#9b9590] mb-3 leading-relaxed">
-                  Pick up to 3 places you hang out — helps AI suggest where to meet.
+                  {t.topSpotsSub}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {[
@@ -1068,7 +1096,7 @@ export default function FeedPage() {
                   })}
                 </div>
                 {topSpots.length > 0 && (
-                  <p className="text-[10px] text-[#9b9590] mt-2">{topSpots.length}/3 selected · tap to deselect</p>
+                  <p className="text-[10px] text-[#9b9590] mt-2">{topSpots.length}/3 {t.selectedSuffix}</p>
                 )}
               </div>
 
@@ -1078,13 +1106,13 @@ export default function FeedPage() {
                   onClick={() => { setShowSettings(false); router.push('/profile') }}
                   className="w-full text-xs text-[#9b9590] py-2 hover:text-[#111] transition-colors"
                 >
-                  go to my profile →
+                  {t.goProfile}
                 </button>
                 <button
                   onClick={handleLogout}
                   className="w-full py-2.5 border border-[#e8e6e1] rounded-xl text-xs text-[#9b9590] hover:border-red-300 hover:text-red-400 transition-all active:scale-[0.98]"
                 >
-                  log out
+                  {t.logout}
                 </button>
               </div>
             </div>
@@ -1095,11 +1123,12 @@ export default function FeedPage() {
   )
 }
 
-function KnownCard({ card, swipeLoading, onSwipe, onReport }: {
+function KnownCard({ card, swipeLoading, onSwipe, onReport, t }: {
   card: ClassmateOnMaple
   swipeLoading: string | null
   onSwipe: (s: Sentiment) => void
   onReport: () => void
+  t: FeedT
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
@@ -1116,14 +1145,14 @@ function KnownCard({ card, swipeLoading, onSwipe, onReport }: {
             onClick={() => { onReport(); setMenuOpen(false) }}
             className="w-full text-left px-4 py-2.5 text-xs text-amber-600 hover:bg-amber-50 transition-colors"
           >
-            ⚠️ report
+            {t.report}
           </button>
           <button
             onClick={() => { onSwipe('block'); setMenuOpen(false) }}
             disabled={swipeLoading !== null}
             className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40"
           >
-            🚫 block
+            {t.block}
           </button>
         </div>
       )}
@@ -1135,7 +1164,7 @@ function KnownCard({ card, swipeLoading, onSwipe, onReport }: {
         <div className="min-w-0 pr-6">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-[#111]">{card.user.name}</p>
-            <span className="text-[10px] bg-[#111] text-white px-1.5 py-0.5 rounded-full">u know them 👀</span>
+            <span className="text-[10px] bg-[#111] text-white px-1.5 py-0.5 rounded-full">{t.uKnowThem}</span>
           </div>
           <p className="text-xs text-[#9b9590]">
             {card.user.gender}
@@ -1149,22 +1178,23 @@ function KnownCard({ card, swipeLoading, onSwipe, onReport }: {
       <div className="flex gap-2">
         <button onClick={() => onSwipe('pass')} disabled={swipeLoading !== null}
           className="flex-1 py-2.5 rounded-xl border border-[#e8e6e1] text-xs font-medium text-[#9b9590] disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'pass' ? '···' : 'not for me'}
+          {swipeLoading === card.user.id + 'pass' ? '···' : t.cardPass}
         </button>
         <button onClick={() => onSwipe('like')} disabled={swipeLoading !== null}
           className="flex-1 py-2.5 rounded-xl bg-[#111] text-white text-xs font-medium disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'like' ? '···' : '🍁 shoot your shot'}
+          {swipeLoading === card.user.id + 'like' ? '···' : t.cardShoot}
         </button>
       </div>
     </div>
   )
 }
 
-function AnonymousCard({ card, swipeLoading, onSwipe, onReport }: {
+function AnonymousCard({ card, swipeLoading, onSwipe, onReport, t }: {
   card: FeedCard
   swipeLoading: string | null
   onSwipe: (s: Sentiment) => void
   onReport: () => void
+  t: FeedT
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
@@ -1181,14 +1211,14 @@ function AnonymousCard({ card, swipeLoading, onSwipe, onReport }: {
             onClick={() => { onReport(); setMenuOpen(false) }}
             className="w-full text-left px-4 py-2.5 text-xs text-amber-600 hover:bg-amber-50 transition-colors"
           >
-            ⚠️ report
+            {t.report}
           </button>
           <button
             onClick={() => { onSwipe('block'); setMenuOpen(false) }}
             disabled={swipeLoading !== null}
             className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40"
           >
-            🚫 block
+            {t.block}
           </button>
         </div>
       )}
@@ -1204,7 +1234,7 @@ function AnonymousCard({ card, swipeLoading, onSwipe, onReport }: {
               <span className="text-[10px] bg-[#f0ede8] text-[#6b6760] px-1.5 py-0.5 rounded-full font-medium">{card.school}</span>
             )}
             {card.distanceKm !== undefined && card.distanceKm < 0.8 && (
-              <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-medium">📍 nearby</span>
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-medium">{t.nearby}</span>
             )}
           </div>
           <p className="text-xs text-[#9b9590]">{card.user.gender}</p>
@@ -1217,11 +1247,11 @@ function AnonymousCard({ card, swipeLoading, onSwipe, onReport }: {
       <div className="flex gap-2">
         <button onClick={() => onSwipe('pass')} disabled={swipeLoading !== null}
           className="flex-1 py-2.5 rounded-xl border border-[#e8e6e1] text-xs font-medium text-[#9b9590] disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'pass' ? '···' : 'not for me'}
+          {swipeLoading === card.user.id + 'pass' ? '···' : t.cardPass}
         </button>
         <button onClick={() => onSwipe('like')} disabled={swipeLoading !== null}
           className="flex-1 py-2.5 rounded-xl bg-[#111] text-white text-xs font-medium disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'like' ? '···' : '🍁 shoot your shot'}
+          {swipeLoading === card.user.id + 'like' ? '···' : t.cardShoot}
         </button>
       </div>
     </div>
