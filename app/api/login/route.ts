@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('id, name, password_hash')
-    .eq('email', String(email).toLowerCase())
-    .single()
+    .ilike('email', String(email).trim().toLowerCase())
+    .maybeSingle()
 
   if (error || !data) {
     return NextResponse.json({ error: "We couldn't find that email. Sign up first." }, { status: 404 })

@@ -29,6 +29,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
   }
 
+  const normalizedEmail = String(email).trim().toLowerCase()
+
+  // One account per email (case-insensitive). App-level check; DB unique index is the backstop.
+  const { data: emailTaken } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .ilike('email', normalizedEmail)
+    .maybeSingle()
+  if (emailTaken) {
+    return NextResponse.json({ error: 'This email is already registered. Log in instead.' }, { status: 409 })
+  }
+
   // One account per phone number (app-level check; DB unique index is the backstop).
   const { data: phoneTaken } = await supabaseAdmin
     .from('users')
@@ -44,7 +56,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from('users')
     .insert({
-      email: String(email).toLowerCase(),
+      email: normalizedEmail,
       phone,
       name,
       gender,
