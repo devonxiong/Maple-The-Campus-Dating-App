@@ -32,6 +32,7 @@ const T = {
     emailTitle: "What's your email?", emailSub: "You'll use this to log back in. Any email works.",
     emailPh: 'you@example.com', continue: 'continue →',
     errEmail: 'Enter a valid email address',
+    errEmailTaken: 'This email is already registered. Log in instead.',
     signingAs: 'signing up as',
     phoneTitle: "What's your number?", phoneSub: "We text a quick code to confirm it's you. No spam, ever.",
     phoneSend: 'text me a code →', sending: 'Sending…',
@@ -68,6 +69,7 @@ const T = {
     emailTitle: '你的邮箱是？', emailSub: '之后用它登录，任意邮箱都可以。',
     emailPh: 'you@example.com', continue: '继续 →',
     errEmail: '请输入有效的邮箱地址',
+    errEmailTaken: '此邮箱已被注册，请直接登录。',
     signingAs: '正在注册',
     phoneTitle: '你的手机号？', phoneSub: '我们会发一条验证码确认是你本人，绝不发垃圾信息。',
     phoneSend: '给我发验证码 →', sending: '发送中…',
@@ -162,11 +164,22 @@ export default function HomePage() {
 
   const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
 
-  function submitEmail() {
+  async function submitEmail() {
     if (!validEmail) { setError(t.errEmail); return }
+    const normalized = email.trim().toLowerCase()
     setError('')
-    setEmail(email.trim().toLowerCase())
-    setStep('phone')
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/check-email?email=${encodeURIComponent(normalized)}`)
+      const json = await res.json()
+      if (json.exists) { setError(t.errEmailTaken); return }
+      setEmail(normalized)
+      setStep('phone')
+    } catch {
+      setError(t.errNet)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ─── Phone verification ────────────────────────────────────────────────────
@@ -455,10 +468,10 @@ export default function HomePage() {
             />
             {error && <ErrorMsg>{error}</ErrorMsg>}
             <button
-              onClick={submitEmail} disabled={!validEmail}
+              onClick={submitEmail} disabled={!validEmail || loading}
               className="w-full mt-4 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
             >
-              {t.continue}
+              {loading ? t.pleaseWait : t.continue}
             </button>
           </div>
         )}
