@@ -8,6 +8,7 @@ const AMAP_SECURITY = process.env.NEXT_PUBLIC_AMAP_SECURITY
 // Tsinghua University (清华大学), Beijing — AMap uses [lng, lat] (GCJ-02)
 const CAMPUS: [number, number] = [116.326, 40.0035]
 const RADIUS_M = 20
+const LIMIT_KM = 2 // keep the map within ~2km of campus
 
 let amapPromise: Promise<void> | null = null
 function loadAMap(): Promise<void> {
@@ -81,8 +82,17 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
       const map = new AMap.Map(mapRef.current, {
         zoom: 16,
         center: CAMPUS,
+        zooms: [14, 19], // min zoom keeps the view roughly campus-sized
         resizeEnable: true,
       })
+      // Restrict panning to a ~2km box around campus
+      const dLat = LIMIT_KM / 111
+      const dLng = LIMIT_KM / (111 * Math.cos(CAMPUS[1] * Math.PI / 180))
+      const limit = new AMap.Bounds(
+        [CAMPUS[0] - dLng, CAMPUS[1] - dLat],
+        [CAMPUS[0] + dLng, CAMPUS[1] + dLat],
+      )
+      map.setLimitBounds(limit)
       const marker = new AMap.Marker({ position: CAMPUS, draggable: true })
       const circle = new AMap.Circle({
         center: CAMPUS, radius: RADIUS_M,
