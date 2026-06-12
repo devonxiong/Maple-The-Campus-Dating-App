@@ -12,7 +12,7 @@ type Step = 'email' | 'phone' | 'otp' | 'name' | 'gender' | 'year' | 'into' | 'g
 
 // Profile steps that show the progress dots (after verification).
 const PROFILE_STEPS: Step[] = ['name', 'gender', 'year', 'into', 'geo', 'password']
-const ORDER: Step[] = ['email', 'otp', 'phone', 'name', 'gender', 'year', 'into', 'geo', 'password']
+const ORDER: Step[] = ['email', 'phone', 'otp', 'name', 'gender', 'year', 'into', 'geo', 'password']
 
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 type Lang = 'en' | 'zh'
@@ -34,11 +34,11 @@ const T = {
     errEmail: 'Enter a valid email address',
     errEmailTaken: 'This email is already registered. Log in instead.',
     signingAs: 'signing up as',
-    phoneTitle: "What's your number?", phoneSub: "We'll only use it to reach you after a match — no spam.",
-    phoneSend: 'continue →', sending: 'Sending…',
+    phoneTitle: "What's your number?", phoneSub: "We text a quick code to confirm it's you. No spam, ever.",
+    phoneSend: 'text me a code →', sending: 'Sending…',
     errPhone: 'Enter a valid phone number',
-    errSend: 'Failed to send code. Try again.', errNet: 'Network error. Try again.',
-    otpTitle: 'Check your email', otpSubPre: 'We emailed a 6-digit code to',
+    errSend: 'Failed to send code. Check your number.', errNet: 'Network error. Try again.',
+    otpTitle: 'Check your texts', otpSubPre: 'We texted a 6-digit code to',
     verify: 'verify →', verifying: 'Verifying…',
     errOtpLen: 'Enter the 6-digit code we texted you', errOtpWrong: 'Wrong code — try again',
     otpResent: 'New code sent ✓', errResend: 'Failed to resend. Try again.',
@@ -71,11 +71,11 @@ const T = {
     errEmail: '请输入有效的邮箱地址',
     errEmailTaken: '此邮箱已被注册，请直接登录。',
     signingAs: '正在注册',
-    phoneTitle: '你的手机号？', phoneSub: '仅用于匹配成功后联系你，不会发短信、不发垃圾信息。',
-    phoneSend: '继续 →', sending: '发送中…',
+    phoneTitle: '你的手机号？', phoneSub: '我们会发一条验证码确认是你本人，绝不发垃圾信息。',
+    phoneSend: '给我发验证码 →', sending: '发送中…',
     errPhone: '请输入有效的手机号',
-    errSend: '验证码发送失败，请重试。', errNet: '网络错误，请重试。',
-    otpTitle: '查收邮箱验证码', otpSubPre: '验证码已发送至',
+    errSend: '验证码发送失败，请检查号码。', errNet: '网络错误，请重试。',
+    otpTitle: '查收短信验证码', otpSubPre: '验证码已发送至',
     verify: '验证 →', verifying: '验证中…',
     errOtpLen: '请输入收到的 6 位验证码', errOtpWrong: '验证码错误，请重试',
     otpResent: '已重新发送 ✓', errResend: '重发失败，请重试。',
@@ -174,15 +174,8 @@ export default function HomePage() {
       const chk = await fetch(`/api/check-email?email=${encodeURIComponent(normalized)}`)
       const cj = await chk.json()
       if (cj.exists) { setError(t.errEmailTaken); return }
-      const res = await fetch('/api/send-email-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalized }),
-      })
-      if (!res.ok) { setError(t.errSend); return }
       setEmail(normalized)
-      setOtp('')
-      setStep('otp')
+      setStep('phone')
     } catch {
       setError(t.errNet)
     } finally {
@@ -190,36 +183,53 @@ export default function HomePage() {
     }
   }
 
-  // ─── Email code verification ────────────────────────────────────────────────
+  // ─── Phone SMS verification (Twilio) ─────────────────────────────────────────
+  function phoneDigits() { return phone.replace(/\D/g, '') }
+  const phoneValid = phoneCC === '86' ? phoneDigits().length === 11 : phoneDigits().length === 10
+  function fullPhone() { return '+' + phoneCC + phoneDigits() }
+
+  async function sendPhoneOtp() {
+    setError(''); setOtpError('')
+    if (!phoneValid) { setError(t.errPhone); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/verify-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone() }),
+      })
+      if (!res.ok) { setError(t.errSend); return }
+      setOtp('')
+      setStep('otp')
+    } catch { setError(t.errNet) }
+    finally { setLoading(false) }
+  }
+
   async function verifyOtp() {
     setOtpError('')
     if (otp.length !== 6) { setOtpError(t.errOtpLen); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/verify-email-code', {
-        method: 'POST',
+      const res = await fetch('/api/verify-phone', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otp }),
+        body: JSON.stringify({ phone: fullPhone(), code: otp }),
       })
       if (!res.ok) { setOtpError(t.errOtpWrong); return }
-      setStep('phone')
+      setStep('name')
     } catch { setOtpError(t.errNet) }
     finally { setLoading(false) }
   }
 
   async function resendOtp() {
     setOtpError('')
-    const res = await fetch('/api/send-email-code', {
+    const res = await fetch('/api/verify-phone', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ phone: fullPhone() }),
     })
     setOtpError(res.ok ? t.otpResent : t.errResend)
   }
-
-  // ─── Phone (collected, not verified) ────────────────────────────────────────
-  function phoneDigits() { return phone.replace(/\D/g, '') }
-  const phoneValid = phoneCC === '86' ? phoneDigits().length === 11 : phoneDigits().length === 10
 
   // ─── Spots (geolocation) ───────────────────────────────────────────────────
   function addSpot(raw: string) {
@@ -295,7 +305,6 @@ export default function HomePage() {
     : step === 'gender' ? !!form.gender
     : step === 'year' ? !!form.year
     : step === 'into' ? form.want_to_date.length > 0
-    : step === 'phone' ? phoneValid
     : true
 
   function dismissSplash() {
@@ -470,7 +479,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Step: phone (collected, not verified) */}
+        {/* Step: phone */}
         {mode === 'signup' && step === 'phone' && (
           <div className="animate-fade-in">
             <StepTitle emoji="📱" title={t.phoneTitle} sub={t.phoneSub} />
@@ -488,18 +497,24 @@ export default function HomePage() {
                 type="tel" inputMode="numeric" autoFocus value={phone}
                 placeholder={phoneCC === '86' ? '138 0000 0000' : '(555) 000-0000'}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, phoneCC === '86' ? 11 : 10))}
-                onKeyDown={(e) => { if (e.key === 'Enter' && phoneValid) goNext() }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && phoneValid) sendPhoneOtp() }}
                 className="flex-1 px-3 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none bg-transparent"
               />
             </div>
-            <ContinueBtn onClick={goNext} disabled={!phoneValid} label={t.continue} />
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+            <button
+              onClick={sendPhoneOtp} disabled={loading || !phoneValid}
+              className="w-full mt-4 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
+            >
+              {loading ? t.sending : t.phoneSend}
+            </button>
           </div>
         )}
 
-        {/* Step: otp (email verification code) */}
+        {/* Step: otp (SMS verification code) */}
         {mode === 'signup' && step === 'otp' && (
           <div className="animate-fade-in">
-            <StepTitle emoji="✉️" title={t.otpTitle} sub={`${t.otpSubPre} ${email}`} />
+            <StepTitle emoji="✉️" title={t.otpTitle} sub={`${t.otpSubPre} ${fullPhone()}`} />
             <input
               type="text" inputMode="numeric" placeholder="_ _ _ _ _ _" maxLength={6} value={otp} autoFocus
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
