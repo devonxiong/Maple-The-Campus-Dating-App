@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@/types'
 import { schoolFromEmail } from '@/lib/score'
-import { useLang, PROFILE } from '@/lib/i18n'
+import { useLang, PROFILE, localizeSchool } from '@/lib/i18n'
 import LangToggle from '../components/LangToggle'
 
 const COLORS = [
@@ -144,7 +144,7 @@ function ProfileContent() {
           </div>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
           <p className="text-base font-semibold text-[#111]">{user.name}</p>
-          <p className="text-xs text-[#9b9590] mt-0.5">{school} · {user.gender}</p>
+          <p className="text-xs text-[#9b9590] mt-0.5">{localizeSchool(school, lang)} · {user.gender}</p>
         </div>
 
         {isSetup ? (

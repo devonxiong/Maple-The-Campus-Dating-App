@@ -13,6 +13,13 @@ export function writeLang(lang: Lang) {
   if (typeof window !== 'undefined') localStorage.setItem('maple_lang', lang)
 }
 
+// Localize a school name (from schoolFromEmail) for display.
+export function localizeSchool(school: string, lang: Lang): string {
+  if (lang !== 'zh') return school
+  const map: Record<string, string> = { 'Tsinghua University': '清华大学' }
+  return map[school] ?? school
+}
+
 // Hook: read saved language on mount + a toggle that persists.
 export function useLang(): [Lang, () => void] {
   const [lang, setLang] = useState<Lang>('en')

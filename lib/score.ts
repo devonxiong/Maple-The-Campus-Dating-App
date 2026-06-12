@@ -22,7 +22,7 @@ export function schoolFromEmail(email: string): string {
   if (domain === 'scrippscollege.edu') return 'Scripps'
   if (domain === 'claremontmckenna.edu' || domain === 'cmc.edu') return 'CMC'
   if (domain === 'g.hmc.edu') return 'HMC'
-  return '5C'
+  return 'Tsinghua University'
 }
 
 /** Haversine distance in km */

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { buildFeed, buildSwipedSet, schoolFromEmail, PresenceMap } from '@/lib/score'
 import { User, FeedCard, Match, Notification } from '@/types'
-import { Lang, readLang, writeLang, FEED, FeedT } from '@/lib/i18n'
+import { Lang, readLang, writeLang, FEED, FeedT, localizeSchool } from '@/lib/i18n'
 
 declare global {
   interface Window {
@@ -755,6 +755,7 @@ export default function FeedPage() {
                     onSwipe={(s) => swipe(card.user.id, s, false)}
                     onReport={() => setReportTarget(card.user.id)}
                     t={t}
+                    lang={lang}
                   />
                 ))}
               </div>
@@ -1190,12 +1191,13 @@ function KnownCard({ card, swipeLoading, onSwipe, onReport, t }: {
   )
 }
 
-function AnonymousCard({ card, swipeLoading, onSwipe, onReport, t }: {
+function AnonymousCard({ card, swipeLoading, onSwipe, onReport, t, lang }: {
   card: FeedCard
   swipeLoading: string | null
   onSwipe: (s: Sentiment) => void
   onReport: () => void
   t: FeedT
+  lang: Lang
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
@@ -1232,7 +1234,7 @@ function AnonymousCard({ card, swipeLoading, onSwipe, onReport, t }: {
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="text-sm font-medium text-[#111]">{card.user.name}</p>
             {card.school && (
-              <span className="text-[10px] bg-[#f0ede8] text-[#6b6760] px-1.5 py-0.5 rounded-full font-medium">{card.school}</span>
+              <span className="text-[10px] bg-[#f0ede8] text-[#6b6760] px-1.5 py-0.5 rounded-full font-medium">{localizeSchool(card.school, lang)}</span>
             )}
             {card.distanceKm !== undefined && card.distanceKm < 0.8 && (
               <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-medium">{t.nearby}</span>
