@@ -4,8 +4,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
-// Claremont Colleges center
-const CAMPUS = { lat: 34.1025, lng: -117.7117 }
+// Tsinghua University (清华大学), Beijing — campus center
+const CAMPUS = { lat: 40.0006, lng: 116.3264 }
 const RADIUS_M = 20
 
 let mapsPromise: Promise<void> | null = null
@@ -37,7 +37,7 @@ const STR = {
     search: '🔍 Search a place — dorm, library, gym…',
     loading: 'loading map…', myLoc: '📍 my location',
     mapErr: "Map couldn't load — type your spot below instead.",
-    manualPh: 'e.g. Honnold Library', add: 'add',
+    manualPh: 'e.g. Tsinghua Library', add: 'add',
     added: 'added ✓', max: 'max 5', addThis: '+ add this spot',
     hint: (r: number) => `Tap the map or search to drop a pin. The circle ≈ ${r}m around your spot. Add up to 5.`,
     denied: 'Location permission denied.',
@@ -46,7 +46,7 @@ const STR = {
     search: '🔍 搜索地点 — 宿舍、图书馆、健身房…',
     loading: '地图加载中…', myLoc: '📍 我的位置',
     mapErr: '地图加载失败 — 请在下方手动输入地点。',
-    manualPh: '例如：图书馆', add: '添加',
+    manualPh: '例如：清华大学图书馆', add: '添加',
     added: '已添加 ✓', max: '最多 5 个', addThis: '+ 添加这个地点',
     hint: (r: number) => `点地图或搜索来放一个图钉。圆圈约覆盖 ${r}m。最多添加 5 个。`,
     denied: '定位权限被拒绝。',
