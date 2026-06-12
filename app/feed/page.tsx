@@ -794,39 +794,6 @@ export default function FeedPage() {
             </section>
           )}
 
-          {/* 开盲盒 */}
-          {!pendingBlindRequest && (
-            <section className="pt-2">
-              <div className="relative overflow-hidden bg-[#111] rounded-2xl px-5 py-5">
-                <div className="absolute -right-4 -top-4 text-[80px] opacity-10 select-none">🎁</div>
-                <p className="text-sm font-semibold text-white mb-1">{t.blindCard}</p>
-                {sentBlindRequest ? (
-                  <>
-                    <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
-                      {t.blindWaiting}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                      <span className="text-xs text-amber-400">{t.blindPending}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
-                      {t.blindDesc}
-                    </p>
-                    <button
-                      onClick={() => setShowBlindConsent(true)}
-                      className="px-5 py-2.5 bg-amber-400 text-[#111] text-xs font-semibold rounded-xl active:scale-95 transition-all"
-                    >
-                      {t.openBox}
-                    </button>
-                  </>
-                )}
-              </div>
-            </section>
-          )}
-
           {/* Direct email invite */}
           <section className="pt-2">
             <div className="flex items-center gap-2 mb-3 px-1">
@@ -866,6 +833,39 @@ export default function FeedPage() {
               )}
             </div>
           </section>
+
+          {/* 开盲盒 (moved below) */}
+          {!pendingBlindRequest && (
+            <section className="pt-2">
+              <div className="relative overflow-hidden bg-[#111] rounded-2xl px-5 py-5">
+                <div className="absolute -right-4 -top-4 text-[80px] opacity-10 select-none">🎁</div>
+                <p className="text-sm font-semibold text-white mb-1">{t.blindCard}</p>
+                {sentBlindRequest ? (
+                  <>
+                    <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
+                      {t.blindWaiting}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-xs text-amber-400">{t.blindPending}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
+                      {t.blindDesc}
+                    </p>
+                    <button
+                      onClick={() => setShowBlindConsent(true)}
+                      className="px-5 py-2.5 bg-amber-400 text-[#111] text-xs font-semibold rounded-xl active:scale-95 transition-all"
+                    >
+                      {t.openBox}
+                    </button>
+                  </>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Routine exhausted / empty state */}
           {(dailyCap || (!contactsLoading && feed.length === 0 && knownOnMaple.length === 0)) && (
