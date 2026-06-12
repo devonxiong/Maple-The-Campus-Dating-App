@@ -6,9 +6,7 @@
 
 When's the last time you shot your shot?
 
-Let's be real — everyone here is built different. We're all overachievers. Seven figures, six packs, Y Combinator, Hollywood. And somewhere between grinding for all of that, love got deprioritized.
-
-Makes sense. But here's the thing — we all want it. The companionship, the connection, someone who actually gets you.
+Let's be real — everyone here is built different. We're all overachievers. And somewhere between grinding for all of it, love got deprioritized.
 
 The hard part isn't wanting it. It's building something real with a complete stranger, only to find out you weren't even their type. Or worse — never shooting your shot because the fear of public failure hits different when everyone knows everyone.
 
@@ -18,34 +16,38 @@ The hard part isn't wanting it. It's building something real with a complete str
 
 ## What Maple Does
 
-No swiping. No performing for an algorithm. No situationships with someone you matched with at 2am.
+No endless swiping. No performing for an algorithm. Maple helps you build genuine relationships within your campus — with people already in your orbit.
 
-Maple helps you build genuine relationships within your college community — with people already in your orbit.
+- Your lecture-hall crush.
+- The one who's always at the gym when you are.
+- The person at the end of your floor you keep almost talking to.
 
-- Your lecture hall crush.
-- The guy who's always on the treadmill when you are.
-- The girl at the end of your floor you keep almost talking to.
+Maple uses **geo-matching** — you mark the spots you frequent on a campus map, and Maple surfaces people already moving through campus the way you do. Match mutually, and an **AI agent plans the actual date** for you.
 
-Maple's AI agent analyzes shared habits, routines, and proximity — pulling from your calendar, iMessages, and location input — to surface people who are already moving through life the same way you are.
+> Currently centered on **Tsinghua University (清华大学)**. Fully bilingual — **English / 中文**, switchable on every page.
 
 ---
 
 ## How It Works
 
-- **10 recommendations a day** — curated, not endless
-- **Mutual matches only** — we only connect you if both of you are interested. No awkwardness, no guessing
-- **Submit a name directly** — find out if the feeling's mutual, privately
-- **One date, every Friday night** — if you match, Maple automatically schedules something on campus around your availability. No logistics paralysis, no "we should hang out sometime" that never happens
-- **Honest feedback** — no match this week? You get real feedback, not silence
-- **Blind Box** — feeling bold? Opt in for one curated match outside your immediate circle. Low risk, high upside
+- **Sign up in one flow** — verify your email with a 6-digit code, then a quick wizard (name → gender → year → who you're into → your campus spots → password).
+- **Geo-matching** — drop pins on the places you hang out; matches are weighted by where you both keep showing up.
+- **Mutual matches only** — you only connect if both of you are interested. No awkwardness, no guessing.
+- **AI plans the date** — when you match, Maple suggests a venue, a time, and an icebreaker tuned to both of you.
+- **Blind Box** — feeling bold? Opt in for one curated match outside your immediate circle.
+- **Safety first** — one account per person (email + phone are unique), report & block built in.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** Next.js 16, Tailwind CSS
-- **Backend:** Supabase (Postgres + Realtime)
-- **Email:** Resend
+- **Frontend:** Next.js (App Router) + TypeScript, Tailwind CSS
+- **Backend:** Supabase (Postgres, Row-Level Security, Realtime, Storage)
+- **AI:** Anthropic Claude (date planning, icebreakers)
+- **Email:** Resend (email verification codes + invites)
+- **Maps:** AMap / 高德地图 (campus location picker)
+- **Auth:** email verification code + password (scrypt-hashed)
+- **i18n:** English / 中文 toggle, shared dictionary
 - **Deployment:** Vercel
 
 ---
@@ -55,11 +57,33 @@ Maple's AI agent analyzes shared habits, routines, and proximity — pulling fro
 ```bash
 npm install
 cp .env.example .env.local
-# fill in your Supabase and Resend keys
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see it running.
+
+### Environment variables
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=        # server-only; used for OTP storage
+
+# Email (verification codes + invites)
+RESEND_API_KEY=
+
+# AI
+ANTHROPIC_API_KEY=
+
+# Maps (高德 / AMap, Web JS API)
+NEXT_PUBLIC_AMAP_KEY=
+NEXT_PUBLIC_AMAP_SECURITY=
+```
+
+> Database setup is applied in Supabase: the core tables (`users`, `swipes`,
+> `matches`), an `email_otps` table for verification codes, and unique indexes
+> on `lower(email)` and `phone` to enforce one account per person.
 
 ---
 
