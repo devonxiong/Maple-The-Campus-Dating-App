@@ -3,33 +3,35 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
-// Tsinghua University (清华大学), Beijing — campus center
-const CAMPUS = { lat: 40.0006, lng: 116.3264 }
+const AMAP_KEY = process.env.NEXT_PUBLIC_AMAP_KEY
+const AMAP_SECURITY = process.env.NEXT_PUBLIC_AMAP_SECURITY
+// Tsinghua University (清华大学), Beijing — AMap uses [lng, lat] (GCJ-02)
+const CAMPUS: [number, number] = [116.326, 40.0035]
 const RADIUS_M = 20
 
-let mapsPromise: Promise<void> | null = null
-function loadMaps(): Promise<void> {
+let amapPromise: Promise<void> | null = null
+function loadAMap(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
-  if ((window as any).google?.maps) return Promise.resolve()
-  if (mapsPromise) return mapsPromise
-  mapsPromise = new Promise((resolve, reject) => {
-    if (!MAPS_KEY) { reject(new Error('Google Maps key not set')); return }
-    const existing = document.getElementById('gmaps-script') as HTMLScriptElement | null
+  if ((window as any).AMap) return Promise.resolve()
+  if (amapPromise) return amapPromise
+  amapPromise = new Promise((resolve, reject) => {
+    if (!AMAP_KEY) { reject(new Error('AMap key not set')); return }
+    if (AMAP_SECURITY) (window as any)._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY }
+    const existing = document.getElementById('amap-script') as HTMLScriptElement | null
     if (existing) {
       existing.addEventListener('load', () => resolve())
-      existing.addEventListener('error', () => reject(new Error('maps failed')))
+      existing.addEventListener('error', () => reject(new Error('amap failed')))
       return
     }
     const s = document.createElement('script')
-    s.id = 'gmaps-script'
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places`
+    s.id = 'amap-script'
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}&plugin=AMap.AutoComplete,AMap.PlaceSearch,AMap.Geocoder,AMap.Geolocation`
     s.async = true
     s.onload = () => resolve()
-    s.onerror = () => reject(new Error('maps failed'))
+    s.onerror = () => reject(new Error('amap failed'))
     document.head.appendChild(s)
   })
-  return mapsPromise
+  return amapPromise
 }
 
 const STR = {
@@ -41,15 +43,17 @@ const STR = {
     added: 'added ✓', max: 'max 5', addThis: '+ add this spot',
     hint: (r: number) => `Tap the map or search to drop a pin. The circle ≈ ${r}m around your spot. Add up to 5.`,
     denied: 'Location permission denied.',
+    pinned: 'Pinned location',
   },
   zh: {
-    search: '🔍 搜索地点 — 宿舍、图书馆、健身房…',
+    search: '🔍 搜索地点 — 宿舍、图书馆、食堂…',
     loading: '地图加载中…', myLoc: '📍 我的位置',
     mapErr: '地图加载失败 — 请在下方手动输入地点。',
     manualPh: '例如：清华大学图书馆', add: '添加',
     added: '已添加 ✓', max: '最多 5 个', addThis: '+ 添加这个地点',
     hint: (r: number) => `点地图或搜索来放一个图钉。圆圈约覆盖 ${r}m。最多添加 5 个。`,
     denied: '定位权限被拒绝。',
+    pinned: '选中的位置',
   },
 }
 
@@ -61,7 +65,7 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
 }) {
   const L = STR[lang]
   const mapRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputId = 'amap-spot-search'
   const objs = useRef<any>({})
   const [ready, setReady] = useState(false)
   const [err, setErr] = useState('')
@@ -70,57 +74,63 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
 
   useEffect(() => {
     let cancelled = false
-    loadMaps().then(() => {
+    loadAMap().then(() => {
       if (cancelled || !mapRef.current) return
-      const g = (window as any).google
+      const AMap = (window as any).AMap
 
-      const map = new g.maps.Map(mapRef.current, {
+      const map = new AMap.Map(mapRef.current, {
+        zoom: 16,
         center: CAMPUS,
-        zoom: 17,
-        disableDefaultUI: true,
-        zoomControl: true,
-        gestureHandling: 'greedy',
-        clickableIcons: true,
+        resizeEnable: true,
       })
-      const marker = new g.maps.Marker({ map, position: CAMPUS, draggable: true })
-      const circle = new g.maps.Circle({
-        map, center: CAMPUS, radius: RADIUS_M,
-        fillColor: '#e0654f', fillOpacity: 0.15,
+      const marker = new AMap.Marker({ position: CAMPUS, draggable: true })
+      const circle = new AMap.Circle({
+        center: CAMPUS, radius: RADIUS_M,
         strokeColor: '#e0654f', strokeOpacity: 0.6, strokeWeight: 1.5,
+        fillColor: '#e0654f', fillOpacity: 0.15,
       })
-      const geocoder = new g.maps.Geocoder()
-      objs.current = { g, map, marker, circle }
+      map.add(marker)
+      map.add(circle)
+      const geocoder = new AMap.Geocoder({ city: '北京' })
+      const placeSearch = new AMap.PlaceSearch({ city: '北京', pageSize: 1 })
+      objs.current = { AMap, map, marker, circle, geocoder, placeSearch }
 
-      const setPos = (pos: any, name?: string) => {
-        marker.setPosition(pos)
-        circle.setCenter(pos)
-        map.panTo(pos)
+      const setPos = (lnglat: any, name?: string) => {
+        marker.setPosition(lnglat)
+        circle.setCenter(lnglat)
+        map.setCenter(lnglat)
         if (name) { setActiveName(name); return }
-        geocoder.geocode({ location: pos }, (res: any, status: string) => {
-          if (status === 'OK' && res?.[0]) {
-            setActiveName(res[0].formatted_address?.split(',')[0] || 'Pinned location')
+        geocoder.getAddress(lnglat, (status: string, result: any) => {
+          if (status === 'complete' && result.regeocode) {
+            const rc = result.regeocode
+            const poi = rc.pois && rc.pois[0]?.name
+            setActiveName(poi || rc.formattedAddress || L.pinned)
           } else {
-            setActiveName('Pinned location')
+            setActiveName(L.pinned)
           }
         })
       }
 
-      marker.addListener('dragend', () => setPos(marker.getPosition()))
-      map.addListener('click', (e: any) => setPos(e.latLng))
+      marker.on('dragend', (e: any) => setPos(e.lnglat))
+      map.on('click', (e: any) => setPos(e.lnglat))
 
-      if (inputRef.current) {
-        const ac = new g.maps.places.Autocomplete(inputRef.current, {
-          fields: ['name', 'geometry', 'formatted_address'],
-        })
-        ac.setBounds(new g.maps.Circle({ center: CAMPUS, radius: 4000 }).getBounds())
-        ac.addListener('place_changed', () => {
-          const p = ac.getPlace()
-          if (p.geometry?.location) {
-            map.setZoom(18)
-            setPos(p.geometry.location, p.name || p.formatted_address?.split(',')[0])
-          }
-        })
-      }
+      // Search autocomplete bound to the input
+      const auto = new AMap.AutoComplete({ input: inputId, city: '北京' })
+      auto.on('select', (e: any) => {
+        const poi = e.poi
+        if (poi?.location) {
+          map.setZoom(17)
+          setPos([poi.location.lng, poi.location.lat], poi.name)
+        } else if (poi?.name) {
+          placeSearch.search(poi.name, (status: string, result: any) => {
+            const p = result?.poiList?.pois?.[0]
+            if (status === 'complete' && p?.location) {
+              map.setZoom(17)
+              setPos([p.location.lng, p.location.lat], poi.name)
+            }
+          })
+        }
+      })
 
       setPos(CAMPUS)
       setReady(true)
@@ -128,22 +138,26 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
       setErr(L.mapErr)
     })
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function useMyLocation() {
-    if (!navigator.geolocation || !objs.current.map) return
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        const pos = { lat: p.coords.latitude, lng: p.coords.longitude }
-        const { map, marker, circle } = objs.current
-        marker.setPosition(pos); circle.setCenter(pos); map.panTo(pos); map.setZoom(18)
-        new objs.current.g.maps.Geocoder().geocode({ location: pos }, (res: any, s: string) => {
-          setActiveName(s === 'OK' && res?.[0] ? (res[0].formatted_address?.split(',')[0] || 'My location') : 'My location')
+    const { AMap, map } = objs.current
+    if (!AMap || !map) return
+    const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000 })
+    geo.getCurrentPosition((status: string, result: any) => {
+      if (status === 'complete' && result.position) {
+        const lnglat = [result.position.lng, result.position.lat]
+        const { marker, circle, geocoder } = objs.current
+        marker.setPosition(lnglat); circle.setCenter(lnglat); map.setCenter(lnglat); map.setZoom(17)
+        geocoder.getAddress(lnglat, (s: string, r: any) => {
+          const rc = r?.regeocode
+          setActiveName((rc?.pois && rc.pois[0]?.name) || rc?.formattedAddress || L.pinned)
         })
-      },
-      () => setErr(L.denied),
-      { enableHighAccuracy: true, timeout: 8000 }
-    )
+      } else {
+        setErr(L.denied)
+      }
+    })
   }
 
   const alreadyAdded = activeName && spots.some(s => s.toLowerCase() === activeName.toLowerCase())
@@ -153,8 +167,9 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
     <div className="space-y-3">
       {/* Search */}
       <input
-        ref={inputRef}
+        id={inputId}
         type="text"
+        autoComplete="off"
         placeholder={L.search}
         className="w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none focus:border-[#111] transition-colors"
       />
@@ -168,7 +183,7 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
         {ready && (
           <button
             type="button" onClick={useMyLocation}
-            className="absolute bottom-2 right-2 bg-white border border-[#e8e6e1] rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#6b6760] shadow-sm hover:border-[#111] transition-colors"
+            className="absolute bottom-2 right-2 z-10 bg-white border border-[#e8e6e1] rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#6b6760] shadow-sm hover:border-[#111] transition-colors"
           >
             {L.myLoc}
           </button>
@@ -193,7 +208,7 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
         <button
           type="button"
           disabled={!!alreadyAdded || full}
-          onClick={() => { onAdd(activeName); }}
+          onClick={() => { onAdd(activeName) }}
           className="w-full flex items-center justify-between gap-2 bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm hover:border-[#111] transition-colors disabled:opacity-50"
         >
           <span className="text-[#111] font-medium truncate">📍 {activeName}</span>
