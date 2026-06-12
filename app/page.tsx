@@ -530,7 +530,7 @@ export default function HomePage() {
           <div className="animate-fade-in">
             <StepTitle emoji="🎓" title={t.yearTitle} />
             <div className="space-y-2">
-              {[{ v: 'First-year', l: t.y1 }, { v: 'Sophomore', l: t.y2 }, { v: 'Junior', l: t.y3 }, { v: 'Senior', l: t.y4 }, { v: 'Grad', l: t.y5 }].map(({ v, l }) => (
+              {[{ v: 'First-year', l: t.y1 }, { v: 'Sophomore', l: t.y2 }, { v: 'Junior', l: t.y3 }, { v: 'Senior', l: t.y4 }].map(({ v, l }) => (
                 <Choice key={v} active={form.year === v} onClick={() => set('year', v)} label={l} />
               ))}
             </div>
