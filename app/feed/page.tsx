@@ -615,9 +615,10 @@ export default function FeedPage() {
             {/* Language toggle */}
             <button
               onClick={toggleLang}
-              className="h-8 px-2.5 rounded-full flex items-center justify-center border border-[#e8e6e1] text-[11px] font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors"
+              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full border border-[#e8e6e1] text-[11px] font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors whitespace-nowrap leading-none"
               title="Switch language"
             >
+              <span className="text-[12px]">🌐</span>
               {lang === 'en' ? '中文' : 'EN'}
             </button>
             {/* Dark mode toggle */}

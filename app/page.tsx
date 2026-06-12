@@ -326,9 +326,10 @@ export default function HomePage() {
       <main className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[#f8f7f4] select-none">
         <button
           onClick={toggleLang}
-          className="absolute top-5 right-5 h-8 px-3 rounded-full flex items-center justify-center border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors"
+          className="absolute top-5 right-5 inline-flex items-center gap-1 h-8 px-3 rounded-full border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors whitespace-nowrap leading-none"
           title="Switch language"
         >
+          <span className="text-[13px]">🌐</span>
           {lang === 'en' ? '中文' : 'EN'}
         </button>
         <div className="w-full max-w-[380px] animate-fade-up flex flex-col items-center text-center">
@@ -368,9 +369,10 @@ export default function HomePage() {
         <div className="flex justify-end items-center gap-2 mb-4">
           <button
             onClick={toggleLang}
-            className="h-8 px-3 rounded-full flex items-center justify-center border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors"
+            className="inline-flex items-center gap-1 h-8 px-3 rounded-full border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors whitespace-nowrap leading-none"
             title="Switch language"
           >
+            <span className="text-[13px]">🌐</span>
             {lang === 'en' ? '中文' : 'EN'}
           </button>
           <button
