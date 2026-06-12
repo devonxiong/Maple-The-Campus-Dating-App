@@ -19,6 +19,14 @@ type Lang = 'en' | 'zh'
 
 const T = {
   en: {
+    introTitleA: 'Dating built around', introTitleB: 'where you already are.',
+    introParaPre: "The hardest part of campus dating isn't wanting it — it's making a move on the person you keep crossing paths with. The lecture-hall crush. The one always at the gym when you are. Maple uses ",
+    introParaBold: 'geo-matching',
+    introParaPost: ' to quietly connect you with the people already moving through campus the way you do — then helps you go from first hello to a real Friday-night date.',
+    introP1: 'Geo-matching', introP1d: 'Matched by the places you both keep showing up.',
+    introP2: 'Real students only', introP2d: 'Your campus, your people — no random strangers.',
+    introP3: 'AI that helps you act', introP3d: 'From the icebreaker to a date that actually happens.',
+    getStarted: 'Get started →',
     tabNew: "I'm new here", tabBack: 'Welcome back',
     loginEmail: 'Email', loginPw: 'Password', loginBtn: 'let me in →',
     emailTitle: "What's your email?", emailSub: "You'll use this to log back in. Any email works.",
@@ -47,6 +55,14 @@ const T = {
     back: '← back', footer: 'mutual matches only 🤝', privacy: 'Privacy', terms: 'Terms', pleaseWait: 'Please wait…',
   },
   zh: {
+    introTitleA: '在你已经在的地方，', introTitleB: '开始一段感情。',
+    introParaPre: '校园约会最难的，从来不是想不想，而是面对那个总和你擦肩而过的人，迟迟迈不出那一步。课堂上心动的那个、健身房里总碰到的那个。Maple 用',
+    introParaBold: '地理位置匹配',
+    introParaPost: '，悄悄把你和那些和你以同样方式穿行校园的人连接起来 —— 再帮你从第一句"你好"，走到真正的周五约会。',
+    introP1: '地理位置匹配', introP1d: '按你们都常出现的地点来匹配。',
+    introP2: '只限真实学生', introP2d: '你的校园、你的人 —— 没有乱七八糟的陌生人。',
+    introP3: 'AI 帮你迈出那一步', introP3d: '从破冰，到真正发生的约会。',
+    getStarted: '开始 →',
     tabNew: '我是新用户', tabBack: '欢迎回来',
     loginEmail: '邮箱', loginPw: '密码', loginBtn: '登录 →',
     emailTitle: '你的邮箱是？', emailSub: '之后用它登录，任意邮箱都可以。',
@@ -307,30 +323,34 @@ export default function HomePage() {
   // ─── Intro ─────────────────────────────────────────────────────────────────
   if (showIntro) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[#f8f7f4] select-none">
+      <main className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[#f8f7f4] select-none">
+        <button
+          onClick={toggleLang}
+          className="absolute top-5 right-5 h-8 px-3 rounded-full flex items-center justify-center border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors"
+          title="Switch language"
+        >
+          {lang === 'en' ? '中文' : 'EN'}
+        </button>
         <div className="w-full max-w-[380px] animate-fade-up flex flex-col items-center text-center">
           <img src="/maple-logo.svg" alt="Maple" className="w-14 h-14 object-contain mb-6" />
           <h1 className="text-[22px] font-semibold tracking-tight text-[#111] mb-4 leading-snug">
-            Dating built around<br />where you already are.
+            {t.introTitleA}<br />{t.introTitleB}
           </h1>
           <p className="text-[15px] text-[#6b6760] leading-relaxed mb-9">
-            The hardest part of campus dating isn&apos;t wanting it — it&apos;s making a
-            move on the person you keep crossing paths with. The lecture-hall crush.
-            The one always at the gym when you are. Maple uses{' '}
-            <span className="text-[#111] font-medium">geo-matching</span> to quietly
-            connect you with the people already moving through campus the way you do —
-            then helps you go from first hello to a real Friday-night date.
+            {t.introParaPre}
+            <span className="text-[#111] font-medium">{t.introParaBold}</span>
+            {t.introParaPost}
           </p>
           <div className="w-full space-y-3.5 mb-10 text-left">
-            <IntroPoint icon="📍" title="Geo-matching" desc="Matched by the places you both keep showing up." />
-            <IntroPoint icon="🔒" title="Real students only" desc="Verified school emails — your campus, no strangers." />
-            <IntroPoint icon="✨" title="AI that helps you act" desc="From the icebreaker to a date that actually happens." />
+            <IntroPoint icon="📍" title={t.introP1} desc={t.introP1d} />
+            <IntroPoint icon="🔒" title={t.introP2} desc={t.introP2d} />
+            <IntroPoint icon="✨" title={t.introP3} desc={t.introP3d} />
           </div>
           <button
             onClick={() => setShowIntro(false)}
             className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium active:scale-[0.98] transition-transform"
           >
-            Get started →
+            {t.getStarted}
           </button>
         </div>
       </main>
