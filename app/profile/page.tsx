@@ -57,18 +57,14 @@ function ProfileContent() {
 
     setUploading(true)
     try {
-      const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${user.id}.${ext}`
-
-      const { error: uploadErr } = await supabase.storage
-        .from('avatars')
-        .upload(path, file, { upsert: true, contentType: file.type })
-
-      if (uploadErr) { showToast(t.tUploadFail); console.error(uploadErr); return }
-
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-      await supabase.from('users').update({ avatar_url: publicUrl }).eq('id', user.id)
-      setAvatarUrl(publicUrl)
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('userId', user.id)
+      const res = await fetch('/api/upload-avatar', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) { showToast(t.tUploadFail); console.error(json.error); return }
+      // cache-bust so a re-upload to the same path shows immediately
+      setAvatarUrl(`${json.url}?t=${Date.now()}`)
       showToast(t.tSaved)
     } catch {
       showToast(t.tUploadFail)
