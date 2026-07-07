@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { buildFeed, buildSwipedSet, schoolFromEmail, PresenceMap } from '@/lib/score'
 import { User, FeedCard, Match, Notification } from '@/types'
 import { Lang, readLang, writeLang, FEED, FeedT, localizeSchool } from '@/lib/i18n'
+import MapleEyes from '../components/MapleEyes'
 
 declare global {
   interface Window {
@@ -606,8 +607,8 @@ export default function FeedPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-1.5">
-              <img src="/maple-logo.svg" alt="Maple" className="w-7 h-7 object-contain" />
-              <h1 className="text-lg font-semibold text-[#111]">Maple</h1>
+              <MapleEyes width={40} strokeWidth={6} />
+              <h1 className="text-lg font-semibold text-[#111] font-display">Maple</h1>
             </div>
             <p className="text-xs text-[#9b9590]">{t.tagline}</p>
           </div>
@@ -870,7 +871,7 @@ export default function FeedPage() {
           {/* Routine exhausted / empty state */}
           {(dailyCap || (!contactsLoading && feed.length === 0 && knownOnMaple.length === 0)) && (
             <div className="flex flex-col items-center justify-center text-center py-16 gap-5">
-              <img src="/maple-logo.svg" alt="Maple" className="w-16 h-16 object-contain opacity-80" />
+              <MapleEyes width={96} strokeWidth={4} />
 
               <div>
                 <p className="text-base font-semibold text-[#111] mb-1">

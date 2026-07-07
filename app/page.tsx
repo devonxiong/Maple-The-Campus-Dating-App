@@ -5,12 +5,15 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import SpotPicker from './components/SpotPicker'
+import MapleEyes, { MapleDoodles } from './components/MapleEyes'
 
 type Mode = 'signup' | 'login'
 // Onboarding is a one-screen-at-a-time wizard.
 type Step = 'email' | 'phone' | 'otp' | 'name' | 'gender' | 'year' | 'into' | 'geo' | 'password'
+// Which top-level screen we're on after the splash.
+type View = 'cta' | 'login' | 'wizard'
 
-// Profile steps that show the progress dots (after verification).
+// Profile steps that show the progress segments (after verification).
 const PROFILE_STEPS: Step[] = ['name', 'gender', 'year', 'into', 'geo', 'password']
 const ORDER: Step[] = ['email', 'otp', 'phone', 'name', 'gender', 'year', 'into', 'geo', 'password']
 
@@ -19,27 +22,21 @@ type Lang = 'en' | 'zh'
 
 const T = {
   en: {
-    introTitleA: 'Dating built around', introTitleB: 'where you already are.',
-    introParaPre: "The hardest part of campus dating isn't wanting it — it's making a move on the person you keep crossing paths with. The lecture-hall crush. The one always at the gym when you are. Maple uses ",
-    introParaBold: 'geo-matching',
-    introParaPost: ' to quietly connect you with the people already moving through campus the way you do — then helps you go from first hello to a real Friday-night date.',
-    introP1: 'Geo-matching', introP1d: 'Matched by the places you both keep showing up.',
-    introP2: 'Real students only', introP2d: 'Your campus, your people — no random strangers.',
-    introP3: 'AI that helps you act', introP3d: 'From the icebreaker to a date that actually happens.',
-    getStarted: 'Get started →',
-    tabNew: "I'm new here", tabBack: 'Welcome back',
-    loginEmail: 'Email', loginPw: 'Password', loginBtn: 'let me in →',
+    ctaTagline: 'For the one you’ve seen a thousand times.',
+    signUp: 'Sign up', logIn: 'Log in', newHere: 'New here?',
+    welcomeBack: 'Welcome back',
+    loginEmail: 'Email', loginPw: 'Password', loginBtn: 'Log in →',
     emailTitle: "What's your email?", emailSub: "You'll use this to log back in. Any email works.",
-    emailPh: 'you@example.com', continue: 'continue →',
+    emailPh: 'you@example.com', continue: 'Continue →',
     errEmail: 'Enter a valid email address',
     errEmailTaken: 'This email is already registered. Log in instead.',
     signingAs: 'signing up as',
     phoneTitle: "What's your number?", phoneSub: "We'll only use it to reach you after a match — no spam.",
-    phoneSend: 'continue →', sending: 'Sending…',
+    phoneSend: 'Continue →', sending: 'Sending…',
     errPhone: 'Enter a valid phone number',
     errSend: 'Failed to send code. Try again.', errNet: 'Network error. Try again.',
     otpTitle: 'Check your email', otpSubPre: 'We emailed a 6-digit code to',
-    verify: 'verify →', verifying: 'Verifying…',
+    verify: 'Verify →', verifying: 'Verifying…',
     errOtpLen: 'Enter the 6-digit code we texted you', errOtpWrong: 'Wrong code — try again',
     otpResent: 'New code sent ✓', errResend: 'Failed to resend. Try again.',
     otpDidnt: "didn't get it?", resend: 'resend',
@@ -48,23 +45,18 @@ const T = {
     yearTitle: 'What year are you?', y1: 'First-year', y2: 'Sophomore', y3: 'Junior', y4: 'Senior', y5: 'Grad',
     intoTitle: 'Who are you into?', intoSub: 'Pick all that apply.', iMen: 'Men', iWomen: 'Women', iNb: 'Non-binary',
     geoTitle: 'Where do you usually show up?', geoSub: 'Drop a pin on the spots you frequent. Maple matches you with people who move through campus the way you do.',
-    skip: 'skip for now →',
+    skip: 'Skip for now →',
     pwTitle: 'Set a password', pwSub: "You'll use your email + this password to log back in.",
-    pwPh: 'password (8+ characters)', pwPh2: 'confirm password', pwCreate: 'create account →', creating: 'Creating your account…',
+    pwPh: 'password (8+ characters)', pwPh2: 'confirm password', pwCreate: 'Create account →', creating: 'Creating your account…',
     errPwLen: 'Password must be at least 8 characters', errPwMatch: 'Passwords do not match',
     errLoginEmpty: 'Enter your email and password', errLogin: 'Login failed', errSignup: 'Sign up failed. Try again.',
-    back: '← back', footer: 'mutual matches only 🤝', privacy: 'Privacy', terms: 'Terms', pleaseWait: 'Please wait…',
+    back: '← back', backToStart: '← back', footer: 'mutual matches only 🤝', privacy: 'Privacy', terms: 'Terms', pleaseWait: 'Please wait…',
+    swipeUp: 'swipe up', stepOf: (a: number, b: number) => `Step ${a} of ${b}`,
   },
   zh: {
-    introTitleA: '在你已经在的地方，', introTitleB: '开始一段感情。',
-    introParaPre: '校园约会最难的，从来不是想不想，而是面对那个总和你擦肩而过的人，迟迟迈不出那一步。课堂上心动的那个、健身房里总碰到的那个。Maple 用',
-    introParaBold: '地理位置匹配',
-    introParaPost: '，悄悄把你和那些和你以同样方式穿行校园的人连接起来 —— 再帮你从第一句"你好"，走到真正的周五约会。',
-    introP1: '地理位置匹配', introP1d: '按你们都常出现的地点来匹配。',
-    introP2: '只限真实学生', introP2d: '你的校园、你的人 —— 没有乱七八糟的陌生人。',
-    introP3: 'AI 帮你迈出那一步', introP3d: '从破冰，到真正发生的约会。',
-    getStarted: '开始 →',
-    tabNew: '我是新用户', tabBack: '欢迎回来',
+    ctaTagline: '写给那个你已经见过千百次的人。',
+    signUp: '注册', logIn: '登录', newHere: '还没账号？',
+    welcomeBack: '欢迎回来',
     loginEmail: '邮箱', loginPw: '密码', loginBtn: '登录 →',
     emailTitle: '你的邮箱是？', emailSub: '之后用它登录，任意邮箱都可以。',
     emailPh: 'you@example.com', continue: '继续 →',
@@ -90,7 +82,8 @@ const T = {
     pwPh: '密码（至少 8 位）', pwPh2: '确认密码', pwCreate: '创建账号 →', creating: '正在创建账号…',
     errPwLen: '密码至少需要 8 位', errPwMatch: '两次密码不一致',
     errLoginEmpty: '请输入邮箱和密码', errLogin: '登录失败', errSignup: '注册失败，请重试。',
-    back: '← 返回', footer: '双向喜欢才匹配 🤝', privacy: '隐私', terms: '条款', pleaseWait: '请稍候…',
+    back: '← 返回', backToStart: '← 返回', footer: '双向喜欢才匹配 🤝', privacy: '隐私', terms: '条款', pleaseWait: '请稍候…',
+    swipeUp: '上滑', stepOf: (a: number, b: number) => `第 ${a} / ${b} 步`,
   },
 } as const
 
@@ -98,6 +91,7 @@ export default function HomePage() {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('signup')
   const [step, setStep] = useState<Step>('email')
+  const [view, setView] = useState<View>('cta')
 
   const [email, setEmail] = useState('')
 
@@ -123,7 +117,6 @@ export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
   const [splashLeaving, setSplashLeaving] = useState(false)
-  const [showIntro, setShowIntro] = useState(false)
   const touchStartY = useRef(0)
 
   useEffect(() => {
@@ -154,13 +147,6 @@ export default function HomePage() {
 
   function set(key: 'name' | 'gender' | 'year', value: string) {
     setForm((f) => ({ ...f, [key]: value }))
-  }
-
-  function switchMode(m: Mode) {
-    setMode(m)
-    setError('')
-    setStep('email')
-    setEmail('')
   }
 
   const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
@@ -289,6 +275,7 @@ export default function HomePage() {
     setError(''); setOtpError('')
     const i = ORDER.indexOf(step)
     if (i > 0) setStep(ORDER[i - 1])
+    else setView('cta')
   }
   const canContinue =
     step === 'name' ? !!form.name.trim()
@@ -298,410 +285,303 @@ export default function HomePage() {
     : step === 'phone' ? phoneValid
     : true
 
+  function startSignup() { setMode('signup'); setStep('email'); setError(''); setView('wizard') }
+  function startLogin() { setMode('login'); setError(''); setView('login') }
+
   function dismissSplash() {
     if (!showSplash) return
     setSplashLeaving(true)
-    setTimeout(() => { setShowSplash(false); setShowIntro(true) }, 400)
+    setTimeout(() => { setShowSplash(false); setView('cta') }, 400)
   }
+
+  // Top-right language + theme controls (shared across non-splash screens).
+  const Controls = (
+    <div className="controls">
+      <button className="ctrl" onClick={toggleLang} title="Switch language">
+        <span>🌐</span>{lang === 'en' ? '中文' : 'EN'}
+      </button>
+      <button className="ctrl" onClick={toggleDark} title={darkMode ? 'Light mode' : 'Dark mode'}>
+        {darkMode ? '☀️' : '🌙'}
+      </button>
+    </div>
+  )
 
   // ─── Splash ────────────────────────────────────────────────────────────────
   if (showSplash) {
     return (
-      <main
-        className="min-h-screen flex flex-col items-center justify-center bg-[#f8f7f4] select-none cursor-pointer"
-        onClick={dismissSplash}
-        onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY }}
-        onTouchEnd={(e) => { if (touchStartY.current - e.changedTouches[0].clientY > 40) dismissSplash() }}
-        onWheel={(e) => { if (e.deltaY > 20) dismissSplash() }}
-      >
-        <div className={`flex flex-col items-center gap-4 transition-all duration-400 ${splashLeaving ? '-translate-y-12 opacity-0' : 'opacity-100'}`}>
-          <img src="/maple-logo.svg" alt="Maple" className="w-24 h-24 object-contain" />
-          <h1 className="text-[32px] font-semibold tracking-tight text-[#111]">Maple</h1>
-          <p className="text-sm text-[#9b9590]">For the one you&apos;ve seen a thousand times.</p>
-        </div>
-        <div className={`absolute bottom-14 flex flex-col items-center gap-1.5 transition-opacity duration-400 ${splashLeaving ? 'opacity-0' : 'opacity-100'}`}>
-          <span className="text-[#c5c0bb] text-xs tracking-wide">swipe up</span>
-          <span className="text-[#c5c0bb] animate-bounce text-sm">↑</span>
-        </div>
-      </main>
-    )
-  }
-
-  // ─── Intro ─────────────────────────────────────────────────────────────────
-  if (showIntro) {
-    return (
-      <main className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[#f8f7f4] select-none">
-        <button
-          onClick={toggleLang}
-          className="absolute top-5 right-5 inline-flex items-center gap-1 h-8 px-3 rounded-full border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors whitespace-nowrap leading-none"
-          title="Switch language"
+      <div className={`app${splashLeaving ? ' leaving' : ''}`}>
+        <section
+          className="screen splash"
+          onClick={dismissSplash}
+          onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY }}
+          onTouchEnd={(e) => { if (touchStartY.current - e.changedTouches[0].clientY > 40) dismissSplash() }}
+          onWheel={(e) => { if (e.deltaY > 20) dismissSplash() }}
         >
-          <span className="text-[13px]">🌐</span>
-          {lang === 'en' ? '中文' : 'EN'}
-        </button>
-        <div className="w-full max-w-[380px] animate-fade-up flex flex-col items-center text-center">
-          <img src="/maple-logo.svg" alt="Maple" className="w-14 h-14 object-contain mb-6" />
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#111] mb-4 leading-snug">
-            {t.introTitleA}<br />{t.introTitleB}
-          </h1>
-          <p className="text-[15px] text-[#6b6760] leading-relaxed mb-9">
-            {t.introParaPre}
-            <span className="text-[#111] font-medium">{t.introParaBold}</span>
-            {t.introParaPost}
-          </p>
-          <div className="w-full space-y-3.5 mb-10 text-left">
-            <IntroPoint icon="📍" title={t.introP1} desc={t.introP1d} />
-            <IntroPoint icon="🔒" title={t.introP2} desc={t.introP2d} />
-            <IntroPoint icon="✨" title={t.introP3} desc={t.introP3d} />
+          <div className="splash-core">
+            <MapleEyes width={182} strokeWidth={4} tap={false} />
+            <h1 className="maple-title">Maple</h1>
+            <p className="maple-sub">{t.ctaTagline}</p>
           </div>
-          <button
-            onClick={() => setShowIntro(false)}
-            className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium active:scale-[0.98] transition-transform"
-          >
-            {t.getStarted}
-          </button>
-        </div>
-      </main>
+          <div className="doodle-wrap"><MapleDoodles /></div>
+          <div className="swipe"><span>{t.swipeUp}</span><span className="arr">↑</span></div>
+        </section>
+      </div>
     )
   }
 
+  // ─── CTA ───────────────────────────────────────────────────────────────────
+  if (view === 'cta') {
+    return (
+      <div className="app">
+        {Controls}
+        <section className="screen cta">
+          <div className="cta-core fade-up">
+            <MapleEyes width={160} strokeWidth={4} />
+            <p className="cta-tagline">{t.ctaTagline}</p>
+          </div>
+          <div className="cta-actions fade-up">
+            <button className="btn btn-primary" onClick={startSignup}>{t.signUp}</button>
+            <button className="btn btn-secondary" onClick={startLogin}>{t.logIn}</button>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  // ─── Login ─────────────────────────────────────────────────────────────────
+  if (view === 'login') {
+    return (
+      <div className="app">
+        {Controls}
+        <section className="screen login">
+          <div className="login-core">
+            <MapleEyes width={150} strokeWidth={4} />
+            <h2 className="login-title">{t.welcomeBack}</h2>
+            <form className="login-form" onSubmit={handleLogin}>
+              <div>
+                <label className="label">{t.loginEmail}</label>
+                <input className="input" type="email" placeholder="you@school.edu" autoComplete="off"
+                  value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} autoFocus />
+              </div>
+              <div>
+                <label className="label">{t.loginPw}</label>
+                <input className="input" type="password" placeholder="••••••••"
+                  value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+              </div>
+              {error && <p className="err-msg">{error}</p>}
+              <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: '.35rem' }}>
+                {loading ? t.pleaseWait : t.loginBtn}
+              </button>
+              <p className="login-alt">
+                {t.newHere} <a onClick={startSignup}>{t.signUp}</a> &nbsp;·&nbsp; <a onClick={() => setView('cta')}>back</a>
+              </p>
+            </form>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  // ─── Signup wizard ─────────────────────────────────────────────────────────
   const profileIdx = PROFILE_STEPS.indexOf(step)
-  const showHeader = mode === 'signup' && step !== 'email'
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-5 py-16 bg-[#f8f7f4]">
-      <div className="w-full max-w-[360px] animate-fade-up">
-
-        {/* Language + dark mode toggles */}
-        <div className="flex justify-end items-center gap-2 mb-4">
-          <button
-            onClick={toggleLang}
-            className="inline-flex items-center gap-1 h-8 px-3 rounded-full border border-[#e8e6e1] text-xs font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors whitespace-nowrap leading-none"
-            title="Switch language"
-          >
-            <span className="text-[13px]">🌐</span>
-            {lang === 'en' ? '中文' : 'EN'}
-          </button>
-          <button
-            onClick={toggleDark}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#eeeae4] transition-colors"
-            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            <span className="text-base">{darkMode ? '☀️' : '🌙'}</span>
-          </button>
-        </div>
-
-        {/* Logo */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 mb-3">
-            <img src="/maple-logo.svg" alt="Maple" className="w-14 h-14 object-contain" />
+    <div className="app">
+      {Controls}
+      <section className="screen wizard">
+        <div className="wiz">
+          <div className="wiz-top">
+            <button className="back" onClick={goBack}>{t.back}</button>
+            <span className="count">{profileIdx >= 0 ? t.stepOf(profileIdx + 1, PROFILE_STEPS.length) : ''}</span>
+            <MapleEyes width={46} strokeWidth={6} className="wiz-eyes" />
           </div>
-          <h1 className="text-[24px] font-semibold tracking-tight text-[#111]">Maple</h1>
-          <p className="text-sm text-[#9b9590] mt-1">For the one you&apos;ve seen a thousand times.</p>
-        </div>
 
-        {/* Wizard header: back arrow + progress dots */}
-        {showHeader && (
-          <div className="flex items-center justify-between mb-6 h-5">
-            <button onClick={goBack} className="text-sm text-[#9b9590] hover:text-[#111] transition-colors">{t.back}</button>
-            {profileIdx >= 0 && (
-              <div className="flex gap-1.5">
-                {PROFILE_STEPS.map((s, i) => (
-                  <span key={s} className={`h-1.5 rounded-full transition-all ${i === profileIdx ? 'w-5 bg-[#111]' : i < profileIdx ? 'w-1.5 bg-[#111]' : 'w-1.5 bg-[#d8d4ce]'}`} />
+          {profileIdx >= 0 && (
+            <div className="progress">
+              {PROFILE_STEPS.map((s, i) => (
+                <span key={s} className={`seg${i <= profileIdx ? ' on' : ''}`} />
+              ))}
+            </div>
+          )}
+
+          {/* Step: email */}
+          {step === 'email' && (
+            <div className="wiz-body">
+              <div className="step-emoji">📧</div>
+              <h2 className="step-title">{t.emailTitle}</h2>
+              <p className="step-sub">{t.emailSub}</p>
+              <input className="input" type="email" placeholder={t.emailPh} value={email} autoFocus
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitEmail() }} />
+              {error && <p className="err-msg">{error}</p>}
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={submitEmail} disabled={!validEmail || loading}>
+                  {loading ? t.pleaseWait : t.continue}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: otp */}
+          {step === 'otp' && (
+            <div className="wiz-body">
+              <div className="step-emoji">✉️</div>
+              <h2 className="step-title">{t.otpTitle}</h2>
+              <p className="step-sub">{t.otpSubPre} {email}</p>
+              <input className="otp-input" type="text" inputMode="numeric" placeholder="______" maxLength={6} value={otp} autoFocus
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(e) => { if (e.key === 'Enter' && otp.length === 6) verifyOtp() }} />
+              {otpError && <p className={otpError.includes('✓') ? 'ok-msg' : 'err-msg'}>{otpError}</p>}
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={verifyOtp} disabled={loading || otp.length !== 6}>
+                  {loading ? t.verifying : t.verify}
+                </button>
+              </div>
+              <p className="pro-note" style={{ textAlign: 'center', marginTop: '1rem' }}>
+                {t.otpDidnt} <a onClick={resendOtp} style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}>{t.resend}</a>
+              </p>
+            </div>
+          )}
+
+          {/* Step: phone */}
+          {step === 'phone' && (
+            <div className="wiz-body">
+              <div className="step-emoji">📱</div>
+              <h2 className="step-title">{t.phoneTitle}</h2>
+              <p className="step-sub">{t.phoneSub}</p>
+              <div className="row" style={{ alignItems: 'stretch' }}>
+                <button type="button" className="choice" style={{ width: 'auto', flex: '0 0 auto', gap: '.4rem' }}
+                  onClick={() => { setPhoneCC(c => c === '86' ? '1' : '86'); setPhone('') }}>
+                  <span>{phoneCC === '86' ? '🇨🇳' : '🇺🇸'}</span>
+                  <span>+{phoneCC}</span>
+                  <span style={{ fontSize: 10, opacity: .6 }}>▾</span>
+                </button>
+                <input className="input" type="tel" inputMode="numeric" autoFocus value={phone}
+                  placeholder={phoneCC === '86' ? '138 0000 0000' : '(555) 000-0000'}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, phoneCC === '86' ? 11 : 10))}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && phoneValid) goNext() }} />
+              </div>
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={goNext} disabled={!phoneValid}>{t.continue}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: name */}
+          {step === 'name' && (
+            <div className="wiz-body">
+              <div className="step-emoji">👋</div>
+              <h2 className="step-title">{t.nameTitle}</h2>
+              <p className="step-sub">{t.nameSub}</p>
+              <input className="input" type="text" placeholder={t.namePh} value={form.name} autoFocus
+                onChange={(e) => set('name', e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) goNext() }} />
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={goNext} disabled={!canContinue}>{t.continue}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: gender */}
+          {step === 'gender' && (
+            <div className="wiz-body">
+              <div className="step-emoji">🧬</div>
+              <h2 className="step-title">{t.genderTitle}</h2>
+              <div className="stack">
+                {[{ v: 'Man', l: t.gMan }, { v: 'Woman', l: t.gWoman }, { v: 'Non-binary', l: t.gNb }].map(({ v, l }) => (
+                  <button key={v} className={`choice${form.gender === v ? ' active' : ''}`} onClick={() => set('gender', v)}>
+                    {l}{form.gender === v && <span>●</span>}
+                  </button>
                 ))}
               </div>
-            )}
-            <span className="w-9" />
-          </div>
-        )}
-
-        {/* Mode tabs — only at the very entry */}
-        {step === 'email' && (
-          <div className="flex bg-[#eeeae4] rounded-xl p-1 mb-6">
-            {(['signup', 'login'] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => switchMode(m)}
-                className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${mode === m ? 'bg-white text-[#111] shadow-sm' : 'text-[#9b9590]'}`}
-              >
-                {m === 'signup' ? t.tabNew : t.tabBack}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* ─── LOGIN ─────────────────────────────────────────────── */}
-        {mode === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-3 animate-fade-in">
-            <Field label={t.loginEmail}>
-              <input
-                type="email" placeholder="your@email.com" value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)} autoFocus className={inputCls}
-              />
-            </Field>
-            <Field label={t.loginPw}>
-              <input
-                type="password" placeholder="••••••••" value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)} className={inputCls}
-              />
-            </Field>
-            {error && <ErrorMsg>{error}</ErrorMsg>}
-            <Btn loading={loading} label={t.loginBtn} waiting={t.pleaseWait} />
-          </form>
-        )}
-
-        {/* ─── SIGNUP WIZARD ─────────────────────────────────────── */}
-        {mode === 'signup' && step === 'email' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="📧" title={t.emailTitle} sub={t.emailSub} />
-            <input
-              type="email" placeholder={t.emailPh} value={email} autoFocus
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') submitEmail() }}
-              className={inputCls}
-            />
-            {error && <ErrorMsg>{error}</ErrorMsg>}
-            <button
-              onClick={submitEmail} disabled={!validEmail || loading}
-              className="w-full mt-4 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
-            >
-              {loading ? t.pleaseWait : t.continue}
-            </button>
-          </div>
-        )}
-
-        {/* Step: phone (collected, not verified) */}
-        {mode === 'signup' && step === 'phone' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="📱" title={t.phoneTitle} sub={t.phoneSub} />
-            <div className="flex items-center bg-white border border-[#e8e6e1] rounded-xl overflow-hidden focus-within:border-[#111] transition-colors">
-              <button
-                type="button"
-                onClick={() => { setPhoneCC(c => c === '86' ? '1' : '86'); setPhone('') }}
-                className="flex items-center gap-1.5 px-3 py-3 border-r border-[#e8e6e1] shrink-0 select-none hover:bg-[#f5f3ef] transition-colors"
-              >
-                <span className="text-base leading-none">{phoneCC === '86' ? '🇨🇳' : '🇺🇸'}</span>
-                <span className="text-sm text-[#6b6760] font-medium">+{phoneCC}</span>
-                <span className="text-[10px] text-[#c5c0bb]">▾</span>
-              </button>
-              <input
-                type="tel" inputMode="numeric" autoFocus value={phone}
-                placeholder={phoneCC === '86' ? '138 0000 0000' : '(555) 000-0000'}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, phoneCC === '86' ? 11 : 10))}
-                onKeyDown={(e) => { if (e.key === 'Enter' && phoneValid) goNext() }}
-                className="flex-1 px-3 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none bg-transparent"
-              />
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={goNext} disabled={!canContinue}>{t.continue}</button>
+              </div>
             </div>
-            <ContinueBtn onClick={goNext} disabled={!phoneValid} label={t.continue} />
-          </div>
-        )}
+          )}
 
-        {/* Step: otp (email verification code) */}
-        {mode === 'signup' && step === 'otp' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="✉️" title={t.otpTitle} sub={`${t.otpSubPre} ${email}`} />
-            <input
-              type="text" inputMode="numeric" placeholder="_ _ _ _ _ _" maxLength={6} value={otp} autoFocus
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              onKeyDown={(e) => { if (e.key === 'Enter' && otp.length === 6) verifyOtp() }}
-              className="w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-4 text-2xl text-center font-semibold tracking-[0.4em] text-[#111] placeholder:text-[#ddd] focus:outline-none focus:border-[#111] transition-colors"
-            />
-            {otpError && <p className={`text-sm text-center py-1 ${otpError.includes('✓') ? 'text-emerald-500' : 'text-red-500'}`}>{otpError}</p>}
-            <button
-              onClick={verifyOtp} disabled={loading || otp.length !== 6}
-              className="w-full mt-3 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
-            >
-              {loading ? t.verifying : t.verify}
-            </button>
-            <p className="text-center text-xs text-[#c5c0bb] mt-4">
-              {t.otpDidnt} <button onClick={resendOtp} className="underline hover:text-[#9b9590]">{t.resend}</button>
-            </p>
-          </div>
-        )}
-
-        {/* Step: name */}
-        {mode === 'signup' && step === 'name' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="👋" title={t.nameTitle} sub={t.nameSub} />
-            <input
-              type="text" placeholder={t.namePh} value={form.name} autoFocus
-              onChange={(e) => set('name', e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) goNext() }}
-              className={inputCls}
-            />
-            <ContinueBtn onClick={goNext} disabled={!canContinue} label={t.continue} />
-          </div>
-        )}
-
-        {/* Step: gender */}
-        {mode === 'signup' && step === 'gender' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="🧬" title={t.genderTitle} />
-            <div className="space-y-2">
-              {[{ v: 'Man', l: t.gMan }, { v: 'Woman', l: t.gWoman }, { v: 'Non-binary', l: t.gNb }].map(({ v, l }) => (
-                <Choice key={v} active={form.gender === v} onClick={() => set('gender', v)} label={l} />
-              ))}
+          {/* Step: year */}
+          {step === 'year' && (
+            <div className="wiz-body">
+              <div className="step-emoji">🎓</div>
+              <h2 className="step-title">{t.yearTitle}</h2>
+              <div className="chips">
+                {[{ v: 'First-year', l: t.y1 }, { v: 'Sophomore', l: t.y2 }, { v: 'Junior', l: t.y3 }, { v: 'Senior', l: t.y4 }, { v: 'Grad', l: t.y5 }].map(({ v, l }) => (
+                  <button key={v} className={`chip${form.year === v ? ' active' : ''}`} onClick={() => set('year', v)}>{l}</button>
+                ))}
+              </div>
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={goNext} disabled={!canContinue}>{t.continue}</button>
+              </div>
             </div>
-            <ContinueBtn onClick={goNext} disabled={!canContinue} label={t.continue} />
-          </div>
-        )}
+          )}
 
-        {/* Step: year */}
-        {mode === 'signup' && step === 'year' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="🎓" title={t.yearTitle} />
-            <div className="space-y-2">
-              {[{ v: 'First-year', l: t.y1 }, { v: 'Sophomore', l: t.y2 }, { v: 'Junior', l: t.y3 }, { v: 'Senior', l: t.y4 }].map(({ v, l }) => (
-                <Choice key={v} active={form.year === v} onClick={() => set('year', v)} label={l} />
-              ))}
+          {/* Step: into */}
+          {step === 'into' && (
+            <div className="wiz-body">
+              <div className="step-emoji">💘</div>
+              <h2 className="step-title">{t.intoTitle}</h2>
+              <p className="step-sub">{t.intoSub}</p>
+              <div className="chips">
+                {[{ v: 'Men', l: t.iMen }, { v: 'Women', l: t.iWomen }, { v: 'Non-binary', l: t.iNb }].map(({ v, l }) => (
+                  <button key={v}
+                    className={`chip${form.want_to_date.includes(v) ? ' active' : ''}`}
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      want_to_date: f.want_to_date.includes(v) ? f.want_to_date.filter(x => x !== v) : [...f.want_to_date, v],
+                    }))}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={goNext} disabled={!canContinue}>{t.continue}</button>
+              </div>
             </div>
-            <ContinueBtn onClick={goNext} disabled={!canContinue} label={t.continue} />
-          </div>
-        )}
+          )}
 
-        {/* Step: into */}
-        {mode === 'signup' && step === 'into' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="💘" title={t.intoTitle} sub={t.intoSub} />
-            <div className="space-y-2">
-              {[{ v: 'Men', l: t.iMen }, { v: 'Women', l: t.iWomen }, { v: 'Non-binary', l: t.iNb }].map(({ v, l }) => (
-                <Choice
-                  key={v}
-                  active={form.want_to_date.includes(v)}
-                  onClick={() => setForm(f => ({
-                    ...f,
-                    want_to_date: f.want_to_date.includes(v) ? f.want_to_date.filter(x => x !== v) : [...f.want_to_date, v],
-                  }))}
-                  label={l}
-                  multi
-                />
-              ))}
+          {/* Step: geo */}
+          {step === 'geo' && (
+            <div className="wiz-body">
+              <div className="step-emoji">📍</div>
+              <h2 className="step-title">{t.geoTitle}</h2>
+              <p className="step-sub">{t.geoSub}</p>
+              <SpotPicker spots={spots} onAdd={addSpot} onRemove={removeSpot} lang={lang} />
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={goNext}>{spots.length === 0 ? t.skip : t.continue}</button>
+              </div>
             </div>
-            <ContinueBtn onClick={goNext} disabled={!canContinue} label={t.continue} />
-          </div>
-        )}
+          )}
 
-        {/* Step: geo */}
-        {mode === 'signup' && step === 'geo' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="📍" title={t.geoTitle} sub={t.geoSub} />
-            <SpotPicker spots={spots} onAdd={addSpot} onRemove={removeSpot} lang={lang} />
-            <ContinueBtn onClick={goNext} disabled={false} label={spots.length === 0 ? t.skip : t.continue} />
-          </div>
-        )}
-
-        {/* Step: password */}
-        {mode === 'signup' && step === 'password' && (
-          <div className="animate-fade-in">
-            <StepTitle emoji="🔐" title={t.pwTitle} sub={t.pwSub} />
-            <div className="space-y-2">
-              <input
-                type="password" placeholder={t.pwPh} value={password} autoFocus
-                onChange={(e) => setPassword(e.target.value)} className={inputCls}
-              />
-              <input
-                type="password" placeholder={t.pwPh2} value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') finishSignup() }}
-                className={inputCls}
-              />
+          {/* Step: password */}
+          {step === 'password' && (
+            <div className="wiz-body">
+              <div className="step-emoji">🔐</div>
+              <h2 className="step-title">{t.pwTitle}</h2>
+              <p className="step-sub">{t.pwSub}</p>
+              <div className="stack">
+                <input className="input" type="password" placeholder={t.pwPh} value={password} autoFocus
+                  onChange={(e) => setPassword(e.target.value)} />
+                <input className="input" type="password" placeholder={t.pwPh2} value={password2}
+                  onChange={(e) => setPassword2(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') finishSignup() }} />
+              </div>
+              {error && <p className="err-msg">{error}</p>}
+              <div className="wiz-foot">
+                <button className="btn btn-primary" onClick={finishSignup} disabled={loading || password.length < 8 || password !== password2}>
+                  {loading ? t.creating : t.pwCreate}
+                </button>
+              </div>
             </div>
-            {error && <ErrorMsg>{error}</ErrorMsg>}
-            <button
-              onClick={finishSignup} disabled={loading || password.length < 8 || password !== password2}
-              className="w-full mt-4 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
-            >
-              {loading ? t.creating : t.pwCreate}
-            </button>
-          </div>
-        )}
+          )}
 
-        <p className="text-center text-xs text-[#c5c0bb] mt-6 leading-relaxed">{t.footer}</p>
-        <p className="text-center text-xs text-[#c5c0bb] mt-2">
-          <a href="/privacy" className="underline hover:text-[#9b9590]">{t.privacy}</a>{' · '}
-          <a href="/terms" className="underline hover:text-[#9b9590]">{t.terms}</a>
-        </p>
-      </div>
-    </main>
-  )
-}
-
-// ─── Shared components ────────────────────────────────────────────────────────
-
-const inputCls = "w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none focus:border-[#111] transition-colors"
-
-function StepTitle({ emoji, title, sub }: { emoji: string; title: string; sub?: string }) {
-  return (
-    <div className="mb-5">
-      <div className="text-3xl mb-2">{emoji}</div>
-      <h2 className="text-lg font-semibold text-[#111] leading-snug">{title}</h2>
-      {sub && <p className="text-sm text-[#9b9590] mt-1 leading-relaxed">{sub}</p>}
+          <p className="pro-note" style={{ textAlign: 'center', marginTop: '1.5rem' }}>{t.footer}</p>
+          <p className="pro-note" style={{ textAlign: 'center', marginTop: '.4rem' }}>
+            <a href="/privacy" style={{ textDecoration: 'underline' }}>{t.privacy}</a>{' · '}
+            <a href="/terms" style={{ textDecoration: 'underline' }}>{t.terms}</a>
+          </p>
+        </div>
+      </section>
     </div>
   )
-}
-
-function Choice({ active, onClick, label, multi }: { active: boolean; onClick: () => void; label: string; multi?: boolean }) {
-  return (
-    <button
-      type="button" onClick={onClick}
-      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${active ? 'bg-[#111] text-white border-[#111]' : 'bg-white text-[#6b6760] border-[#e8e6e1] hover:border-[#111]'}`}
-    >
-      {label}
-      {active && <span className="text-xs">{multi ? '✓' : '●'}</span>}
-    </button>
-  )
-}
-
-function ContinueBtn({ onClick, disabled, label = 'continue →' }: { onClick: () => void; disabled: boolean; label?: string }) {
-  return (
-    <button
-      onClick={onClick} disabled={disabled}
-      className="w-full mt-6 bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
-    >
-      {label}
-    </button>
-  )
-}
-
-function IntroPoint({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="w-9 h-9 rounded-full bg-white border border-[#e8e6e1] flex items-center justify-center text-base shrink-0">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-[#111] leading-tight">{title}</p>
-        <p className="text-xs text-[#9b9590] leading-snug mt-0.5">{desc}</p>
-      </div>
-    </div>
-  )
-}
-
-function Field({ label, hint, required, children, className = '' }: {
-  label: string; hint?: string; required?: boolean; children: React.ReactNode; className?: string
-}) {
-  return (
-    <div className={className}>
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <label className="text-xs font-medium text-[#6b6760]">
-          {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-        </label>
-        {hint && <span className="text-xs text-[#c5c0bb]">{hint}</span>}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function Btn({ loading, label, waiting = 'Please wait…' }: { loading: boolean; label: string; waiting?: string }) {
-  return (
-    <button
-      type="submit" disabled={loading}
-      className="w-full bg-[#111] text-white rounded-xl py-3.5 text-sm font-medium mt-1 disabled:opacity-40 active:scale-[0.98] transition-transform"
-    >
-      {loading ? waiting : label}
-    </button>
-  )
-}
-
-function ErrorMsg({ children }: { children: React.ReactNode }) {
-  return <p className="text-red-500 text-sm text-center py-1">{children}</p>
 }
