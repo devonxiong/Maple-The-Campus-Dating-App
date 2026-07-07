@@ -13,12 +13,13 @@ type View = 'cta' | 'login' | 'wizard'
 type Lang = 'en' | 'zh'
 
 // The Claremont Colleges (matches lib/score → schoolFromEmail).
+// `allowed` = the email domains we accept as proof of enrollment for that college.
 const COLLEGES = [
-  { name: 'Pomona', label: 'Pomona', domain: 'pomona.edu' },
-  { name: 'CMC', label: 'Claremont McKenna', domain: 'cmc.edu' },
-  { name: 'HMC', label: 'Harvey Mudd', domain: 'hmc.edu' },
-  { name: 'Scripps', label: 'Scripps', domain: 'scrippscollege.edu' },
-  { name: 'Pitzer', label: 'Pitzer', domain: 'pitzer.edu' },
+  { name: 'Pomona', label: 'Pomona', domain: 'pomona.edu', allowed: ['pomona.edu', 'mymail.pomona.edu'] },
+  { name: 'CMC', label: 'Claremont McKenna', domain: 'cmc.edu', allowed: ['cmc.edu', 'claremontmckenna.edu'] },
+  { name: 'HMC', label: 'Harvey Mudd', domain: 'hmc.edu', allowed: ['hmc.edu', 'g.hmc.edu'] },
+  { name: 'Scripps', label: 'Scripps', domain: 'scrippscollege.edu', allowed: ['scrippscollege.edu'] },
+  { name: 'Pitzer', label: 'Pitzer', domain: 'pitzer.edu', allowed: ['pitzer.edu', 'students.pitzer.edu'] },
 ] as const
 
 // ─── i18n ─────────────────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ const T = {
     schoolEmail: 'School email',
     errPickCollege: 'Pick your college first',
     errEmail: 'Enter a valid email address',
+    errNot5C: (d: string) => `Use your Claremont school email (@${d})`,
     errEmailTaken: 'This email is already registered. Log in instead.',
     errSend: 'Failed to send code. Try again.',
     sendCode: 'Send code →', sending: 'Sending…',
@@ -94,6 +96,7 @@ const T = {
     schoolEmail: '校园邮箱',
     errPickCollege: '请先选择你的学校',
     errEmail: '请输入有效的邮箱地址',
+    errNot5C: (d: string) => `请使用你的克莱蒙特校园邮箱（@${d}）`,
     errEmailTaken: '此邮箱已被注册，请直接登录。',
     errSend: '验证码发送失败，请重试。',
     sendCode: '发送验证码 →', sending: '发送中…',
@@ -196,6 +199,10 @@ export default function HomePage() {
     if (!college) { setError(t.errPickCollege); return }
     if (!validEmail) { setError(t.errEmail); return }
     const normalized = email.trim().toLowerCase()
+    const domain = normalized.split('@')[1] || ''
+    if (collegeMeta && !(collegeMeta.allowed as readonly string[]).includes(domain)) {
+      setError(t.errNot5C(collegeMeta.domain)); return
+    }
     setError(''); setLoading(true)
     try {
       const chk = await fetch(`/api/check-email?email=${encodeURIComponent(normalized)}`)
