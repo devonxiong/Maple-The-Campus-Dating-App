@@ -153,9 +153,6 @@ export default function HomePage() {
   const [gender, setGender] = useState('')
   const [into, setInto] = useState<string[]>([])
   const [spots, setSpots] = useState<string[]>([])
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState('')
-  const photoInput = useRef<HTMLInputElement>(null)
 
   // step 3 — rules + password
   const [password, setPassword] = useState('')
@@ -240,12 +237,6 @@ export default function HomePage() {
   }
 
   // ─── step 2: photo + spots ──────────────────────────────────────────────────
-  function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setPhotoFile(f)
-    setPhotoPreview(URL.createObjectURL(f))
-  }
   function addSpot(raw: string) {
     const s = raw.trim()
     if (!s) return
@@ -257,7 +248,6 @@ export default function HomePage() {
     if (!firstName.trim()) { setError(t.errName); return }
     if (!gender) { setError(t.errGender); return }
     if (into.length === 0) { setError(t.errPref); return }
-    if (!photoFile) { setError(t.errPhoto); return }
     setError(''); setWizStep(2)
   }
 
@@ -280,15 +270,7 @@ export default function HomePage() {
       if (!res.ok) { setError(json.error || t.errSignup); return }
       localStorage.setItem('anlan_user_id', json.id)
       localStorage.setItem('anlan_user_name', json.name)
-      // Upload the required photo now that we have a user id (best-effort).
-      if (photoFile) {
-        try {
-          const fd = new FormData()
-          fd.append('file', photoFile)
-          fd.append('userId', json.id)
-          await fetch('/api/upload-avatar', { method: 'POST', body: fd })
-        } catch { /* photo can be re-added in profile */ }
-      }
+      // Photo is added on the next screen (the last onboarding step).
       router.push('/profile?setup=1')
     } catch { setError(t.errNet) } finally { setLoading(false) }
   }
@@ -539,17 +521,6 @@ export default function HomePage() {
                     {t.topSpots} <HandIcon name="pin" size={13} />
                   </label>
                   <SpotPicker spots={spots} onAdd={addSpot} onRemove={removeSpot} lang={lang} />
-                </div>
-
-                <div>
-                  <label className="label">{t.onePhoto}</label>
-                  <div className={`photo${photoPreview ? ' filled' : ''}`} onClick={() => photoInput.current?.click()}>
-                    {photoPreview
-                      ? <img src={photoPreview} alt="you" />
-                      : <HandIcon name="plus" size={30} />}
-                  </div>
-                  <input ref={photoInput} type="file" accept="image/*" hidden onChange={pickPhoto} />
-                  <p className="hint">{t.photoHint}</p>
                 </div>
               </div>
 

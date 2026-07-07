@@ -647,14 +647,6 @@ export default function FeedPage() {
             >
               <HandIcon name={darkMode ? 'sun' : 'moon'} size={17} />
             </button>
-            {/* Settings */}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#eeeae4] transition-colors"
-              title="Privacy settings"
-            >
-              <HandIcon name="gear" size={17} />
-            </button>
             {currentUser && (
               <button onClick={() => router.push('/profile')} className="shrink-0">
                 {currentUser.avatar_url ? (
@@ -690,7 +682,7 @@ export default function FeedPage() {
                 <span className="x" onClick={() => saveTopSpots(topSpots.filter(x => x !== s))}>✕</span>
               </span>
             ))}
-            <span className="spot-chip add" onClick={() => setShowSettings(true)}>+ {lang === 'zh' ? '添加地点' : 'add spot'}</span>
+            <span className="spot-chip add" onClick={() => router.push('/profile')}>+ {lang === 'zh' ? '添加地点' : 'add spot'}</span>
           </div>
         )}
 
@@ -786,111 +778,6 @@ export default function FeedPage() {
                     lang={lang}
                   />
                 ))}
-              </div>
-            </section>
-          )}
-
-          {/* Invite contacts not on Maple */}
-          {knownOff.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-3 px-1">
-                <span className="text-xs font-semibold text-[#111]">{t.inviteTitle}</span>
-                <span className="text-xs text-[#9b9590]">{t.inviteSub}</span>
-              </div>
-              <div className="space-y-2">
-                {knownOff.map((c) => (
-                  <div key={c.email} className="bg-white rounded-2xl border border-[#e8e6e1] px-4 py-3 flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 ${nameColor(c.name)}`}>
-                      {c.name[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#111] truncate">{c.name}</p>
-                      <p className="text-xs text-[#9b9590] truncate">{c.email}</p>
-                    </div>
-                    <button
-                      onClick={() => sendInvite(c)}
-                      disabled={c.invited || inviteLoading === c.email}
-                      className={`shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                        c.invited ? 'bg-[#f0ede8] text-[#9b9590]' : 'bg-[#111] text-white active:scale-95'
-                      }`}
-                    >
-                      {c.invited ? t.sent : inviteLoading === c.email ? '···' : t.invite}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Direct email invite */}
-          <section className="pt-2">
-            <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="text-xs font-semibold text-[#111]">{t.inviteSomeone}</span>
-              <span className="text-xs text-[#9b9590]">{t.inviteSomeoneSub}</span>
-            </div>
-            <div className="bg-white border border-[#e8e6e1] rounded-2xl px-4 py-4">
-              <p className="text-xs text-[#9b9590] mb-3 leading-relaxed">
-                {t.inviteBody}
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  value={directInviteEmail}
-                  onChange={e => setDirectInviteEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendDirectInvite()}
-                  placeholder={t.invitePh}
-                  className="flex-1 text-sm border border-[#e8e6e1] rounded-xl px-3 py-2.5 outline-none focus:border-[#111] transition-colors placeholder:text-[#c5c0bb]"
-                />
-                <button
-                  onClick={sendDirectInvite}
-                  disabled={directInviteLoading || !directInviteEmail.trim()}
-                  className="px-4 py-2.5 bg-[#111] text-white text-xs font-medium rounded-xl disabled:opacity-40 active:scale-95 transition-all shrink-0"
-                >
-                  {directInviteLoading ? '···' : t.send}
-                </button>
-              </div>
-              {directInviteSent.length > 0 && (
-                <div className="mt-3 space-y-1">
-                  {directInviteSent.map(email => (
-                    <div key={email} className="flex items-center gap-1.5 text-[11px] text-[#9b9590]">
-                      <span className="text-emerald-500">✓</span>
-                      <span>{email}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* 开盲盒 (moved below) */}
-          {!pendingBlindRequest && (
-            <section className="pt-2">
-              <div className="relative overflow-hidden bg-[#111] rounded-2xl px-5 py-5">
-                <div className="absolute -right-4 -top-4 text-[80px] opacity-10 select-none">🎁</div>
-                <p className="text-sm font-semibold text-white mb-1">{t.blindCard}</p>
-                {sentBlindRequest ? (
-                  <>
-                    <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
-                      {t.blindWaiting}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                      <span className="text-xs text-amber-400">{t.blindPending}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs text-[#9b9590] leading-relaxed mb-4">
-                      {t.blindDesc}
-                    </p>
-                    <button
-                      onClick={() => setShowBlindConsent(true)}
-                      className="px-5 py-2.5 bg-amber-400 text-[#111] text-xs font-semibold rounded-xl active:scale-95 transition-all"
-                    >
-                      {t.openBox}
-                    </button>
-                  </>
-                )}
               </div>
             </section>
           )}
@@ -1154,7 +1041,7 @@ export default function FeedPage() {
       <nav className="feed-nav" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 440, zIndex: 30 }}>
         <button className="nav-item active"><span className="ico"><HandIcon name="pin" size={19} /></span>{lang === 'zh' ? '附近' : 'Nearby'}</button>
         <button className="nav-item" onClick={() => router.push('/matches')}><span className="ico"><HandIcon name="seeNoEvil" size={19} /></span>{lang === 'zh' ? '匹配' : 'Matches'}</button>
-        <button className="nav-item" onClick={() => router.push('/match')}><span className="ico"><HandIcon name="heart" size={19} /></span>{lang === 'zh' ? '约会' : 'Date'}</button>
+        <button className="nav-item" onClick={() => router.push('/date')}><span className="ico"><HandIcon name="heart" size={19} /></span>{lang === 'zh' ? '约会' : 'Date'}</button>
         <button className="nav-item" onClick={() => router.push('/profile')}><span className="ico"><HandIcon name="person" size={19} /></span>{lang === 'zh' ? '我' : 'Me'}</button>
       </nav>
     </main>

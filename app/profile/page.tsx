@@ -8,6 +8,7 @@ import { schoolFromEmail } from '@/lib/score'
 import { useLang, PROFILE, localizeSchool } from '@/lib/i18n'
 import MapleEyes from '../components/MapleEyes'
 import HandIcon, { IconName } from '../components/HandIcon'
+import PhotoCropper from '../components/PhotoCropper'
 
 const GRADIENTS = [
   'linear-gradient(135deg,#f7b7c6,#e98aa6)', 'linear-gradient(135deg,#a9c7f5,#6f9ce8)',
@@ -29,8 +30,11 @@ function ProfileContent() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [toast, setToast] = useState('')
   const [darkMode, setDarkMode] = useState(false)
+  const [geotracking, setGeotracking] = useState(true)
+  const [agentEnabled, setAgentEnabled] = useState(true)
   const [lang, toggleLang] = useLang()
   const t = PROFILE[lang]
   const zh = lang === 'zh'
@@ -52,9 +56,19 @@ function ProfileContent() {
         if (!data) { router.push('/'); return }
         setUser(data as User)
         setAvatarUrl(data.avatar_url ?? null)
+        const d = data as Record<string, unknown>
+        setGeotracking(d.geotracking_enabled !== false)
+        setAgentEnabled(d.agent_enabled !== false)
         setLoading(false)
       })
   }, [router])
+
+  async function savePrivacy(geo: boolean, agent: boolean) {
+    const userId = localStorage.getItem('anlan_user_id')
+    if (!userId) return
+    await supabase.from('users').update({ geotracking_enabled: geo, agent_enabled: agent }).eq('id', userId)
+    if (!geo) await supabase.from('user_presence').delete().eq('user_id', userId)
+  }
 
   function toggleDark() {
     const n = !darkMode
@@ -63,20 +77,27 @@ function ProfileContent() {
     localStorage.setItem('maple_dark', String(n))
   }
 
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file || !user) return
     if (!file.type.startsWith('image/')) { showToast(t.tSelectImage); return }
-    if (file.size > 5 * 1024 * 1024) { showToast(t.tTooLarge); return }
+    if (file.size > 15 * 1024 * 1024) { showToast(t.tTooLarge); return }
+    setPendingFile(file)
+  }
+
+  async function uploadCropped(blob: Blob) {
+    if (!user) return
     setUploading(true)
     try {
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }))
       fd.append('userId', user.id)
       const res = await fetch('/api/upload-avatar', { method: 'POST', body: fd })
       const json = await res.json()
       if (!res.ok) { showToast(t.tUploadFail); console.error(json.error); return }
       setAvatarUrl(`${json.url}?t=${Date.now()}`)
+      setPendingFile(null)
       showToast(t.tSaved)
     } catch {
       showToast(t.tUploadFail)
@@ -105,30 +126,35 @@ function ProfileContent() {
   const year = (user as unknown as Record<string, unknown>).year as string | undefined
   const meta = [localizeSchool(school, lang), year, user.gender].filter(Boolean).join(' · ')
 
-  // ── Setup mode: photo upload right after signup ──
+  // ── Setup mode: photo (with crop/zoom) right after signup — the last step ──
   if (isSetup) {
     return (
       <main className="app">
-        <section className="screen done" style={{ paddingTop: '5rem' }}>
-          <MapleEyes width={130} strokeWidth={4} />
-          <h2 className="font-display" style={{ fontSize: 22, fontWeight: 600, margin: '.5rem 0 0' }}>{t.setupTitle}</h2>
-          <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 260, textAlign: 'center' }}>{t.setupSub}</p>
-          <div
-            className={`me-photo eye-tap`}
-            style={{ width: 120, height: 120, fontSize: 46, background: avatarUrl ? undefined : gradient(user.id), margin: '.5rem 0' }}
-            onClick={() => fileRef.current?.click()}
-          >
-            {avatarUrl ? <img src={avatarUrl} alt={user.name} /> : user.name[0].toUpperCase()}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhotoSelect} />
-          <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
-            <button className="btn btn-primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
-              {uploading ? t.uploading : avatarUrl ? t.changePhoto : t.addPhoto}
-            </button>
-            <button className="btn btn-secondary" onClick={() => router.push('/feed')}>
-              {avatarUrl ? t.looksGood : t.skip}
-            </button>
-          </div>
+        <section className="screen done" style={{ paddingTop: '4rem', gap: '1rem' }}>
+          <MapleEyes width={120} strokeWidth={4} />
+          <h2 className="font-display" style={{ fontSize: 22, fontWeight: 600, margin: '.25rem 0 0' }}>{t.setupTitle}</h2>
+          <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 260, textAlign: 'center', margin: 0 }}>{t.setupSub}</p>
+          <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFilePicked} />
+          {pendingFile ? (
+            <PhotoCropper file={pendingFile} onDone={uploadCropped} busy={uploading} lang={lang}
+              onCancel={() => { setPendingFile(null); setTimeout(() => fileRef.current?.click(), 0) }} />
+          ) : (
+            <>
+              {avatarUrl && (
+                <div className="me-photo" style={{ width: 130, height: 130, borderRadius: '50%', margin: '.25rem 0' }}>
+                  <img src={avatarUrl} alt={user.name} />
+                </div>
+              )}
+              <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
+                <button className="btn btn-primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                  {avatarUrl ? t.changePhoto : t.addPhoto}
+                </button>
+                <button className="btn btn-secondary" onClick={() => router.push('/feed')}>
+                  {avatarUrl ? t.looksGood : t.skip}
+                </button>
+              </div>
+            </>
+          )}
         </section>
         {toast && <div className="feed-toast">{toast}</div>}
       </main>
@@ -136,6 +162,11 @@ function ProfileContent() {
   }
 
   // ── Me (account hub) ──
+  const Switch = ({ on }: { on: boolean }) => (
+    <span style={{ width: 44, height: 24, borderRadius: 999, background: on ? 'var(--accent)' : 'var(--border)', position: 'relative', flex: '0 0 auto', transition: 'background .15s', display: 'inline-block' }}>
+      <span style={{ position: 'absolute', top: 2, left: on ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,.25)' }} />
+    </span>
+  )
   const Row = ({ icon, title, sub, right, onClick, danger }: {
     icon: IconName; title: string; sub?: string; right?: React.ReactNode; onClick?: () => void; danger?: boolean
   }) => (
@@ -161,7 +192,7 @@ function ProfileContent() {
             <div className="me-photo eye-tap" style={{ background: avatarUrl ? undefined : gradient(user.id) }} onClick={() => fileRef.current?.click()}>
               {avatarUrl ? <img src={avatarUrl} alt={user.name} /> : user.name[0].toUpperCase()}
             </div>
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhotoSelect} />
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFilePicked} />
             <div className="me-info">
               <span className="me-name">{user.name} <span className="verified"><HandIcon name="check" size={12} /></span></span>
               <div className="me-meta">{meta}</div>
@@ -184,8 +215,13 @@ function ProfileContent() {
 
           <p className="date-sec-label">{zh ? '设置' : 'Settings'}</p>
           <div className="me-list">
+            <Row icon="pin" title={zh ? '允许定位' : 'Allow location'} sub={zh ? '用你常去的地点来匹配' : 'Match by the places you show up'}
+              onClick={() => { const n = !geotracking; setGeotracking(n); savePrivacy(n, agentEnabled) }}
+              right={<Switch on={geotracking} />} />
+            <Row icon="robot" title={zh ? 'AI 规划约会' : 'AI date planning'} sub={zh ? '匹配后让 AI 帮你安排约会' : 'Let AI plan your date after a match'}
+              onClick={() => { const n = !agentEnabled; setAgentEnabled(n); savePrivacy(geotracking, n) }}
+              right={<Switch on={agentEnabled} />} />
             <Row icon="bell" title={zh ? '通知' : 'Notifications'} sub={zh ? '匹配、消息、邀请' : 'Matches, messages, invites'} onClick={soon} />
-            <Row icon="seeNoEvil" title={zh ? '隐私与可见性' : 'Privacy & visibility'} sub={zh ? '谁能看到你、隐身模式' : 'Who can see you, stealth mode'} onClick={soon} />
             <Row icon="globe" title={zh ? '语言' : 'Language'} sub={zh ? '应用语言' : 'App language'} onClick={toggleLang}
               right={<span className="me-row-val">{lang === 'en' ? 'EN' : '中文'} ⇄</span>} />
             <Row icon={darkMode ? 'sun' : 'moon'} title={zh ? '外观' : 'Appearance'} sub={zh ? '浅色或深色' : 'Light or dark'} onClick={toggleDark}
@@ -206,10 +242,19 @@ function ProfileContent() {
         <nav className="feed-nav" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 440, zIndex: 30 }}>
           <button className="nav-item" onClick={() => router.push('/feed')}><span className="ico"><HandIcon name="pin" size={19} /></span>{zh ? '附近' : 'Nearby'}</button>
           <button className="nav-item" onClick={() => router.push('/matches')}><span className="ico"><HandIcon name="seeNoEvil" size={19} /></span>{zh ? '匹配' : 'Matches'}</button>
-          <button className="nav-item" onClick={() => router.push('/match')}><span className="ico"><HandIcon name="heart" size={19} /></span>{zh ? '约会' : 'Date'}</button>
+          <button className="nav-item" onClick={() => router.push('/date')}><span className="ico"><HandIcon name="heart" size={19} /></span>{zh ? '约会' : 'Date'}</button>
           <button className="nav-item active"><span className="ico"><HandIcon name="person" size={19} /></span>{zh ? '我' : 'Me'}</button>
         </nav>
       </section>
+
+      {pendingFile && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => !uploading && setPendingFile(null)}>
+          <div style={{ width: '100%', maxWidth: 440, background: 'var(--background)', borderRadius: '20px 20px 0 0', padding: '1.5rem 1.25rem 2rem' }} onClick={e => e.stopPropagation()}>
+            <p className="font-display" style={{ fontSize: 17, fontWeight: 600, textAlign: 'center', marginBottom: '1rem' }}>{zh ? '调整照片' : 'Adjust photo'}</p>
+            <PhotoCropper file={pendingFile} onDone={uploadCropped} onCancel={() => setPendingFile(null)} busy={uploading} lang={lang} />
+          </div>
+        </div>
+      )}
 
       {toast && <div className="feed-toast">{toast}</div>}
     </main>

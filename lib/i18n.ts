@@ -189,8 +189,8 @@ export type FeedT = typeof FEED.en
 export const PROFILE = {
   en: {
     back: '← back',
-    setupTitle: 'One last thing 👋', setupSub: "add a photo so people know it's you",
-    uploading: 'Uploading…', changePhoto: 'Change photo 📷', addPhoto: 'Add a photo 📷',
+    setupTitle: 'One last thing', setupSub: "add a photo so people know it's you",
+    uploading: 'Uploading…', changePhoto: 'Change photo', addPhoto: 'Add a photo',
     looksGood: 'looks good, continue →', skip: 'skip for now',
     email: 'Email', gender: 'Gender', lookingFor: 'Looking for', spots: 'Spots', logout: 'log out',
     tSelectImage: 'Please select an image', tTooLarge: 'Photo too large — max 5MB',
@@ -198,8 +198,8 @@ export const PROFILE = {
   },
   zh: {
     back: '← 返回',
-    setupTitle: '最后一步 👋', setupSub: '加一张照片，让大家认出你',
-    uploading: '上传中…', changePhoto: '换一张照片 📷', addPhoto: '加一张照片 📷',
+    setupTitle: '最后一步', setupSub: '加一张照片，让大家认出你',
+    uploading: '上传中…', changePhoto: '换一张照片', addPhoto: '加一张照片',
     looksGood: '不错，继续 →', skip: '暂时跳过',
     email: '邮箱', gender: '性别', lookingFor: '想认识', spots: '常去地点', logout: '退出登录',
     tSelectImage: '请选择一张图片', tTooLarge: '图片太大 — 最大 5MB',
