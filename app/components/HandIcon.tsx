@@ -9,6 +9,7 @@ export type IconName =
   | 'gradcap' | 'person' | 'scroll' | 'envelope' | 'pin' | 'lock'
   | 'heart' | 'eye' | 'sparkle' | 'wave' | 'gift' | 'shield' | 'toolbox'
   | 'bell' | 'gear' | 'globe' | 'moon' | 'sun' | 'plus' | 'check' | 'handshake'
+  | 'close' | 'chevron' | 'logout' | 'trash' | 'seeNoEvil' | 'chat' | 'grad'
 
 const P: Record<IconName, React.ReactNode> = {
   gradcap: (
@@ -102,8 +103,10 @@ const P: Record<IconName, React.ReactNode> = {
   ),
   gear: (
     <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3.5 V5.5 M12 18.5 V20.5 M20.5 12 H18.5 M5.5 12 H3.5 M18 6 L16.6 7.4 M7.4 16.6 L6 18 M18 18 L16.6 16.6 M7.4 7.4 L6 6" />
+      <path d="M4 7.5 H20 M4 12 H20 M4 16.5 H20" />
+      <circle cx="9" cy="7.5" r="2.1" fill="var(--card)" />
+      <circle cx="15" cy="12" r="2.1" fill="var(--card)" />
+      <circle cx="9" cy="16.5" r="2.1" fill="var(--card)" />
     </>
   ),
   globe: (
@@ -127,6 +130,34 @@ const P: Record<IconName, React.ReactNode> = {
       <path d="M21 9 L17 8 L13.5 10.5" />
       <path d="M7 8 V15 M17 8 V15" />
       <path d="M11 12.6 L13.5 15 C14.2 15.6 15.2 15.4 15.6 14.6 L17 12" />
+    </>
+  ),
+  close: <path d="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" />,
+  chevron: <path d="M9.5 5.5 L16 12 L9.5 18.5" />,
+  logout: (
+    <>
+      <path d="M14 4.5 H6.5 A1.6 1.6 0 0 0 5 6.1 V17.9 A1.6 1.6 0 0 0 6.5 19.5 H14" />
+      <path d="M14.5 12 H21 M18 8.5 L21.5 12 L18 15.5" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M5 7 H19 M9 7 V5.4 A1.2 1.2 0 0 1 10.2 4.2 H13.8 A1.2 1.2 0 0 1 15 5.4 V7" />
+      <path d="M6.6 7 L7.4 18.6 A1.5 1.5 0 0 0 8.9 20 H15.1 A1.5 1.5 0 0 0 16.6 18.6 L17.4 7" />
+      <path d="M10 10.5 V16.5 M14 10.5 V16.5" />
+    </>
+  ),
+  seeNoEvil: (
+    <>
+      <path d="M2.6 12.4 C5.2 8.4 9 6.6 12 6.6 C15 6.6 18.8 8.4 21.4 12.4" />
+      <path d="M6 12.5 L4 14 M18 12.5 L20 14 M9 14.4 L8.2 16.6 M15 14.4 L15.8 16.6 M12 15 V17.3" />
+    </>
+  ),
+  chat: <path d="M4.5 6.2 A1.7 1.7 0 0 1 6.2 4.5 H17.8 A1.7 1.7 0 0 1 19.5 6.2 V14 A1.7 1.7 0 0 1 17.8 15.7 H9.5 L5.5 19.2 V15.7 H6.2 A1.7 1.7 0 0 1 4.5 14 Z" />,
+  grad: (
+    <>
+      <path d="M12 4.2 L21.5 8.3 L12 12.6 L2.5 8.3 Z" />
+      <path d="M6 10.2 V14.8 C6 16.5 18 16.5 18 14.8 V10.2" />
     </>
   ),
 }

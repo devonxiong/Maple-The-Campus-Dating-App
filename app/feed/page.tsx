@@ -9,6 +9,21 @@ import { buildFeed, buildSwipedSet, schoolFromEmail, PresenceMap } from '@/lib/s
 import { User, FeedCard, Match, Notification } from '@/types'
 import { Lang, readLang, writeLang, FEED, FeedT, localizeSchool } from '@/lib/i18n'
 import MapleEyes from '../components/MapleEyes'
+import HandIcon from '../components/HandIcon'
+
+// Card photo gradients (from the eyes prototype) — picked deterministically by id.
+const GRADIENTS = [
+  'linear-gradient(135deg,#f7b7c6,#e98aa6)',
+  'linear-gradient(135deg,#a9c7f5,#6f9ce8)',
+  'linear-gradient(135deg,#bfe3c6,#7fc98f)',
+  'linear-gradient(135deg,#d8c3f0,#b492e0)',
+  'linear-gradient(135deg,#a8e0d8,#6fc9bd)',
+  'linear-gradient(135deg,#f5cfa8,#e8a86f)',
+]
+function cardGradient(id: string) {
+  const n = id.charCodeAt(0) + id.charCodeAt(id.length - 1)
+  return GRADIENTS[n % GRADIENTS.length]
+}
 
 declare global {
   interface Window {
@@ -601,7 +616,7 @@ export default function FeedPage() {
 
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
-      <div className="max-w-[420px] mx-auto px-4 py-6">
+      <div className="max-w-[440px] mx-auto px-4 py-6 pb-28">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -610,7 +625,9 @@ export default function FeedPage() {
               <MapleEyes width={40} strokeWidth={6} />
               <h1 className="text-lg font-semibold text-[#111] font-display">Maple</h1>
             </div>
-            <p className="text-xs text-[#9b9590]">{t.tagline}</p>
+            <p className="feed-campus" style={{ marginTop: 2 }}>
+              {(lang === 'zh' ? '我的学校' : 'My campus')} · {currentUser ? localizeSchool(schoolFromEmail(currentUser.email), lang) : '—'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {/* Language toggle */}
@@ -619,7 +636,7 @@ export default function FeedPage() {
               className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full border border-[#e8e6e1] text-[11px] font-medium text-[#6b6760] hover:border-[#111] hover:text-[#111] transition-colors whitespace-nowrap leading-none"
               title="Switch language"
             >
-              <span className="text-[12px]">🌐</span>
+              <HandIcon name="globe" size={13} />
               {lang === 'en' ? '中文' : 'EN'}
             </button>
             {/* Dark mode toggle */}
@@ -628,7 +645,7 @@ export default function FeedPage() {
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#eeeae4] transition-colors"
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              <span className="text-base">{darkMode ? '☀️' : '🌙'}</span>
+              <HandIcon name={darkMode ? 'sun' : 'moon'} size={17} />
             </button>
             {/* Settings */}
             <button
@@ -636,7 +653,7 @@ export default function FeedPage() {
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#eeeae4] transition-colors"
               title="Privacy settings"
             >
-              <span className="text-base">⚙️</span>
+              <HandIcon name="gear" size={17} />
             </button>
             {currentUser && (
               <button onClick={() => router.push('/profile')} className="shrink-0">
@@ -664,15 +681,25 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Action legend */}
-        {(feed.length > 0 || knownOnMaple.length > 0) && (
-          <div className="flex items-center justify-center gap-3 mb-4 px-1">
-            <span className="text-[10px] text-[#9b9590]">🍁 <span className="font-medium text-[#6b6760]">{t.legShoot}</span> — {t.legShootSub}</span>
-            <span className="text-[#ddd]">·</span>
-            <span className="text-[10px] text-[#9b9590]">👋 <span className="font-medium text-[#6b6760]">{t.legPass}</span> — {t.legPassSub}</span>
-            <span className="text-[#ddd]">·</span>
-            <span className="text-[10px] text-[#9b9590]">🚫 {t.legBlock}</span>
+        {/* Spot chips */}
+        {topSpots.length > 0 && (
+          <div className="spot-chips">
+            {topSpots.map(s => (
+              <span key={s} className="spot-chip">
+                <HandIcon name="pin" size={12} /> {s}
+                <span className="x" onClick={() => saveTopSpots(topSpots.filter(x => x !== s))}>✕</span>
+              </span>
+            ))}
+            <span className="spot-chip add" onClick={() => setShowSettings(true)}>+ {lang === 'zh' ? '添加地点' : 'add spot'}</span>
           </div>
+        )}
+
+        {/* People near your route */}
+        {(feed.length > 0 || knownOnMaple.length > 0) && (
+          <>
+            <h3 className="nearby-h">{lang === 'zh' ? '路线上的人' : 'People near your route'}</h3>
+            <p className="nearby-sub">{lang === 'zh' ? '看看那些和你以同样方式穿行校园的人。' : 'See the people who move through campus the way you do.'}</p>
+          </>
         )}
 
         <div className="space-y-6 animate-fade-up">
@@ -1122,73 +1149,82 @@ export default function FeedPage() {
           </div>
         </div>
       )}
+
+      {/* Bottom tab nav */}
+      <nav className="feed-nav" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 440, zIndex: 30 }}>
+        <button className="nav-item active"><span className="ico"><HandIcon name="pin" size={19} /></span>{lang === 'zh' ? '附近' : 'Nearby'}</button>
+        <button className="nav-item" onClick={() => router.push('/match')}><span className="ico"><HandIcon name="seeNoEvil" size={19} /></span>{lang === 'zh' ? '匹配' : 'Matches'}</button>
+        <button className="nav-item" onClick={() => router.push('/match')}><span className="ico"><HandIcon name="heart" size={19} /></span>{lang === 'zh' ? '约会' : 'Date'}</button>
+        <button className="nav-item" onClick={() => router.push('/profile')}><span className="ico"><HandIcon name="person" size={19} /></span>{lang === 'zh' ? '我' : 'Me'}</button>
+      </nav>
     </main>
   )
 }
 
-function KnownCard({ card, swipeLoading, onSwipe, onReport, t }: {
+// Prototype photo card — big gradient/photo, name + sub overlaid, 3 round actions.
+function PhotoCard({ card, swipeLoading, onSwipe, onReport, t, lang, sub, hint }: {
+  card: FeedCard
+  swipeLoading: string | null
+  onSwipe: (s: Sentiment) => void
+  onReport: () => void
+  t: FeedT
+  lang?: Lang
+  sub: string
+  hint?: string
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const u = card.user
+  const busy = swipeLoading !== null
+  const zh = lang === 'zh'
+  return (
+    <div className="card">
+      <div className="card-photo" style={{ background: cardGradient(u.id) }}>
+        {u.avatar_url
+          ? <img src={u.avatar_url} alt={u.name} />
+          : <span className="initial">{u.name[0].toUpperCase()}</span>}
+        <button className="card-menu" onClick={() => setMenuOpen(o => !o)} aria-label="more">···</button>
+        {menuOpen && <div className="fixed inset-0 z-[9]" onClick={() => setMenuOpen(false)} />}
+        {menuOpen && (
+          <div className="card-menu-pop">
+            <button onClick={() => { onReport(); setMenuOpen(false) }}>{t.report}</button>
+            <button onClick={() => { onSwipe('block'); setMenuOpen(false) }} disabled={busy} style={{ color: 'var(--danger)' }}>{t.block}</button>
+          </div>
+        )}
+        <div className="card-meta">
+          <strong>{u.name}</strong>
+          <span>{sub}</span>
+          {hint && <span style={{ display: 'block', marginTop: 2, opacity: .85 }}>✦ {hint}</span>}
+        </div>
+      </div>
+      <div className="card-actions">
+        <div className="act-col">
+          <button className="act" onClick={() => onSwipe('pass')} disabled={busy}><HandIcon name="close" size={20} /></button>
+          <span className="act-lbl">{zh ? '跳过' : 'pass'}</span>
+        </div>
+        <div className="act-col">
+          <button className="act" onClick={() => onSwipe('like')} disabled={busy}><HandIcon name="seeNoEvil" size={20} /></button>
+          <span className="act-lbl">{zh ? '暗恋' : 'stealth like'}</span>
+        </div>
+        <div className="act-col">
+          <button className="act like" onClick={() => onSwipe('like')} disabled={busy}><HandIcon name="heart" size={20} /></button>
+          <span className="act-lbl">{zh ? '喜欢' : 'send like'}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function KnownCard({ card, swipeLoading, onSwipe, onReport, t, lang }: {
   card: ClassmateOnMaple
   swipeLoading: string | null
   onSwipe: (s: Sentiment) => void
   onReport: () => void
   t: FeedT
+  lang?: Lang
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
   return (
-    <div className="relative bg-white rounded-2xl border-2 border-[#111] p-4 shadow-sm">
-      <button
-        onClick={() => setMenuOpen(o => !o)}
-        className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full text-[#c5c0bb] hover:bg-[#f0ede8] transition-all text-sm font-bold"
-      >
-        ···
-      </button>
-      {menuOpen && (
-        <div className="absolute top-10 right-3 z-10 bg-white border border-[#e8e6e1] rounded-xl shadow-lg overflow-hidden min-w-[140px]">
-          <button
-            onClick={() => { onReport(); setMenuOpen(false) }}
-            className="w-full text-left px-4 py-2.5 text-xs text-amber-600 hover:bg-amber-50 transition-colors"
-          >
-            {t.report}
-          </button>
-          <button
-            onClick={() => { onSwipe('block'); setMenuOpen(false) }}
-            disabled={swipeLoading !== null}
-            className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40"
-          >
-            {t.block}
-          </button>
-        </div>
-      )}
-      {menuOpen && <div className="fixed inset-0 z-[9]" onClick={() => setMenuOpen(false)} />}
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center text-base font-semibold shrink-0 ${nameColor(card.user.name)}`}>
-          {card.user.name[0].toUpperCase()}
-        </div>
-        <div className="min-w-0 pr-6">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-[#111]">{card.user.name}</p>
-            <span className="text-[10px] bg-[#111] text-white px-1.5 py-0.5 rounded-full">{t.uKnowThem}</span>
-          </div>
-          <p className="text-xs text-[#9b9590]">
-            {card.user.gender}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 bg-[#f0ede8] rounded-xl px-3 py-2 mb-4">
-        <span className="text-xs">👋</span>
-        <span className="text-xs text-[#6b6760]">{card.hint}</span>
-      </div>
-      <div className="flex gap-2">
-        <button onClick={() => onSwipe('pass')} disabled={swipeLoading !== null}
-          className="flex-1 py-2.5 rounded-xl border border-[#e8e6e1] text-xs font-medium text-[#9b9590] disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'pass' ? '···' : t.cardPass}
-        </button>
-        <button onClick={() => onSwipe('like')} disabled={swipeLoading !== null}
-          className="flex-1 py-2.5 rounded-xl bg-[#111] text-white text-xs font-medium disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'like' ? '···' : t.cardShoot}
-        </button>
-      </div>
-    </div>
+    <PhotoCard card={card} swipeLoading={swipeLoading} onSwipe={onSwipe} onReport={onReport} t={t} lang={lang}
+      sub={[t.uKnowThem, card.user.gender].filter(Boolean).join(' · ')} hint={card.hint} />
   )
 }
 
@@ -1200,64 +1236,10 @@ function AnonymousCard({ card, swipeLoading, onSwipe, onReport, t, lang }: {
   t: FeedT
   lang: Lang
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const near = card.distanceKm !== undefined && card.distanceKm < 0.8 ? ` · ${t.nearby}` : ''
+  const sub = [card.school ? localizeSchool(card.school, lang) : '', card.user.gender].filter(Boolean).join(' · ') + near
   return (
-    <div className="relative bg-white rounded-2xl border border-[#e8e6e1] p-4 shadow-sm">
-      <button
-        onClick={() => setMenuOpen(o => !o)}
-        className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full text-[#c5c0bb] hover:bg-[#f0ede8] transition-all text-sm font-bold"
-      >
-        ···
-      </button>
-      {menuOpen && (
-        <div className="absolute top-10 right-3 z-10 bg-white border border-[#e8e6e1] rounded-xl shadow-lg overflow-hidden min-w-[140px]">
-          <button
-            onClick={() => { onReport(); setMenuOpen(false) }}
-            className="w-full text-left px-4 py-2.5 text-xs text-amber-600 hover:bg-amber-50 transition-colors"
-          >
-            {t.report}
-          </button>
-          <button
-            onClick={() => { onSwipe('block'); setMenuOpen(false) }}
-            disabled={swipeLoading !== null}
-            className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40"
-          >
-            {t.block}
-          </button>
-        </div>
-      )}
-      {menuOpen && <div className="fixed inset-0 z-[9]" onClick={() => setMenuOpen(false)} />}
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center text-base font-semibold shrink-0 ${avatarColor(card.user.id)}`}>
-          {card.user.name[0].toUpperCase()}
-        </div>
-        <div className="min-w-0 pr-6 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-sm font-medium text-[#111]">{card.user.name}</p>
-            {card.school && (
-              <span className="text-[10px] bg-[#f0ede8] text-[#6b6760] px-1.5 py-0.5 rounded-full font-medium">{localizeSchool(card.school, lang)}</span>
-            )}
-            {card.distanceKm !== undefined && card.distanceKm < 0.8 && (
-              <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-medium">{t.nearby}</span>
-            )}
-          </div>
-          <p className="text-xs text-[#9b9590]">{card.user.gender}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 bg-[#f8f7f4] rounded-xl px-3 py-2 mb-4">
-        <span className="text-xs">✦</span>
-        <span className="text-xs text-[#6b6760]">{card.hint}</span>
-      </div>
-      <div className="flex gap-2">
-        <button onClick={() => onSwipe('pass')} disabled={swipeLoading !== null}
-          className="flex-1 py-2.5 rounded-xl border border-[#e8e6e1] text-xs font-medium text-[#9b9590] disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'pass' ? '···' : t.cardPass}
-        </button>
-        <button onClick={() => onSwipe('like')} disabled={swipeLoading !== null}
-          className="flex-1 py-2.5 rounded-xl bg-[#111] text-white text-xs font-medium disabled:opacity-40 active:scale-95 transition-all">
-          {swipeLoading === card.user.id + 'like' ? '···' : t.cardShoot}
-        </button>
-      </div>
-    </div>
+    <PhotoCard card={card} swipeLoading={swipeLoading} onSwipe={onSwipe} onReport={onReport} t={t} lang={lang}
+      sub={sub} hint={card.hint} />
   )
 }
