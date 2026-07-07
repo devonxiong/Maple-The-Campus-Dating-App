@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { Match, DateCard, User, AgentStep } from '@/types'
 import { useLang, MATCH } from '@/lib/i18n'
 import LangToggle from '../components/LangToggle'
+import HandIcon from '../components/HandIcon'
 
 const COLORS = [
   'bg-rose-50 text-rose-500',
@@ -184,8 +185,8 @@ export default function MatchPage() {
         <div className="w-full max-w-[360px] text-center animate-scale-in">
 
           <div className="mb-8">
-            <div className="text-5xl mb-4">🎉</div>
-            <h1 className="text-2xl font-semibold text-[#111] mb-1">{t.revealTitle}</h1>
+            <div className="flex justify-center mb-4 text-[#111]"><HandIcon name="sparkle" size={44} /></div>
+            <h1 className="text-2xl font-semibold text-[#111] mb-1 font-display">{t.revealTitle}</h1>
             <p className="text-sm text-[#9b9590]">{t.revealSub}</p>
           </div>
 
@@ -197,7 +198,7 @@ export default function MatchPage() {
               </div>
               <span className="text-xs text-[#9b9590]">{me.gender}</span>
             </div>
-            <div className="text-red-400 text-xl">❤</div>
+            <div style={{ color: 'var(--accent)' }}><HandIcon name="heart" size={22} /></div>
             <div className="flex flex-col items-center gap-2">
               <div className={`w-[60px] h-[60px] rounded-full flex items-center justify-center text-xl font-semibold ${avatarColor(them.id)}`}>
                 {them.name[0].toUpperCase()}
@@ -238,10 +239,10 @@ export default function MatchPage() {
         <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
         <div className="w-full max-w-[340px] animate-fade-up">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-black mb-4">
-              <span className="text-xl">🤖</span>
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
+              <HandIcon name="robot" size={24} />
             </div>
-            <h2 className="text-base font-semibold text-[#111]">{t.cookingTitle}</h2>
+            <h2 className="text-base font-semibold text-[#111] font-display">{t.cookingTitle}</h2>
             <p className="text-xs text-[#9b9590] mt-1">{t.cookingSub}</p>
           </div>
 
@@ -306,8 +307,8 @@ export default function MatchPage() {
         <div className="w-full max-w-[360px] animate-scale-in">
 
           <div className="text-center mb-6">
-            <div className="text-3xl mb-3">📅</div>
-            <h1 className="text-xl font-semibold text-[#111]">{t.dateCooked}</h1>
+            <div className="flex justify-center mb-3 text-[#111]"><HandIcon name="calendar" size={30} /></div>
+            <h1 className="text-xl font-semibold text-[#111] font-display">{t.dateCooked}</h1>
             <p className="text-sm text-[#9b9590] mt-1">{t.personalized}</p>
           </div>
 
@@ -315,7 +316,7 @@ export default function MatchPage() {
           <div className="bg-white rounded-2xl border border-[#e8e6e1] overflow-hidden mb-5 shadow-sm">
             <div className="px-5 py-4 border-b border-[#f0ede8]">
               <div className="flex items-center gap-3">
-                <span className="text-xl">📅</span>
+                <span className="text-[#111]"><HandIcon name="calendar" size={20} /></span>
                 <div>
                   <p className="text-xs text-[#9b9590] mb-0.5">{t.when}</p>
                   <p className="text-sm font-semibold text-[#111]">{dateCard.time}</p>
@@ -324,7 +325,7 @@ export default function MatchPage() {
             </div>
             <div className="border-b border-[#f0ede8]">
               <div className="flex items-center gap-3 px-5 py-4">
-                <span className="text-xl">📍</span>
+                <span className="text-[#111]"><HandIcon name="pin" size={20} /></span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-[#9b9590] mb-0.5">{t.where}</p>
                   <p className="text-sm font-semibold text-[#111]">{dateCard.venue}</p>
@@ -351,7 +352,7 @@ export default function MatchPage() {
             </div>
             <div className="px-5 py-4 border-b border-[#f0ede8]">
               <div className="flex items-center gap-3">
-                <span className="text-xl">✦</span>
+                <span className="text-[#111]"><HandIcon name="sparkle" size={20} /></span>
                 <div>
                   <p className="text-xs text-[#9b9590] mb-0.5">{t.inCommon}</p>
                   <p className="text-sm text-[#111]">{dateCard.shared_context}</p>
@@ -360,7 +361,7 @@ export default function MatchPage() {
             </div>
             <div className="px-5 py-4 border-b border-[#f0ede8]">
               <div className="flex items-center gap-3">
-                <span className="text-xl">💬</span>
+                <span className="text-[#111]"><HandIcon name="quote" size={20} /></span>
                 <div>
                   <p className="text-xs text-[#9b9590] mb-0.5">{t.convStarter}</p>
                   <p className="text-sm italic text-[#6b6760]">&ldquo;{dateCard.icebreaker}&rdquo;</p>
@@ -428,8 +429,8 @@ export default function MatchPage() {
       <main className="relative min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-[#f8f7f4]">
         <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
         <div className="w-full max-w-[360px] text-center animate-scale-in">
-          <div className="text-5xl mb-4">🌟</div>
-          <h1 className="text-xl font-semibold text-[#111] mb-2">{t.happening}</h1>
+          <div className="flex justify-center mb-4" style={{ color: 'var(--accent)' }}><HandIcon name="sparkle" size={44} /></div>
+          <h1 className="text-xl font-semibold text-[#111] mb-2 font-display">{t.happening}</h1>
           {dateCard && (
             <p className="text-sm text-[#9b9590] mb-1">{dateCard.time} · {dateCard.venue}</p>
           )}
@@ -485,7 +486,7 @@ export default function MatchPage() {
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-1.5 bg-[#111] text-white rounded-xl py-3 text-xs font-medium active:scale-[0.98] transition-transform"
                 >
-                  🗺️ Google Maps
+                  <HandIcon name="pin" size={15} /> Google Maps
                 </a>
                 <a
                   href={`maps://maps.apple.com/?q=${encodeURIComponent(dateCard.venue + ' Claremont CA')}`}
@@ -493,7 +494,7 @@ export default function MatchPage() {
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-[#e8e6e1] text-[#111] rounded-xl py-3 text-xs font-medium active:scale-[0.98] transition-transform"
                 >
-                  🍎 Apple Maps
+                  <HandIcon name="pin" size={15} /> Apple Maps
                 </a>
               </div>
             </div>
@@ -515,7 +516,7 @@ export default function MatchPage() {
     <main className="relative min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8f7f4]">
       <LangToggle lang={lang} onToggle={toggleLang} className="absolute top-5 right-5" />
       <div className="w-full max-w-[360px] text-center">
-        <div className="text-4xl mb-4">⏳</div>
+        <div className="flex justify-center mb-4 text-[#111]"><HandIcon name="robot" size={38} /></div>
         <p className="text-sm text-[#9b9590] mb-6">{t.stillCooking}</p>
         <button
           onClick={() => setScreen('loading')}

@@ -10,6 +10,7 @@ export type IconName =
   | 'heart' | 'eye' | 'sparkle' | 'wave' | 'gift' | 'shield' | 'toolbox'
   | 'bell' | 'gear' | 'globe' | 'moon' | 'sun' | 'plus' | 'check' | 'handshake'
   | 'close' | 'chevron' | 'logout' | 'trash' | 'seeNoEvil' | 'chat' | 'grad'
+  | 'calendar' | 'robot' | 'quote'
 
 const P: Record<IconName, React.ReactNode> = {
   gradcap: (
@@ -133,6 +134,26 @@ const P: Record<IconName, React.ReactNode> = {
     </>
   ),
   close: <path d="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" />,
+  calendar: (
+    <>
+      <rect x="4" y="5.5" width="16" height="15" rx="2.2" />
+      <path d="M4 9.5 H20 M8 3.5 V7 M16 3.5 V7" />
+    </>
+  ),
+  robot: (
+    <>
+      <rect x="5" y="8" width="14" height="11" rx="2.4" />
+      <path d="M12 8 V4.8 M12 4.8 A1.2 1.2 0 1 0 12 4.79" />
+      <circle cx="9.3" cy="13" r="1.2" /><circle cx="14.7" cy="13" r="1.2" />
+      <path d="M3.5 12 V15 M20.5 12 V15" />
+    </>
+  ),
+  quote: (
+    <>
+      <path d="M6 15 C4.5 15 4 13.8 4 12.5 C4 10 6 8.5 8.5 8.5 M8.5 8.5 C8 10 7.5 11 7.5 12.5 C7.5 14 6.8 15 6 15 Z" />
+      <path d="M15 15 C13.5 15 13 13.8 13 12.5 C13 10 15 8.5 17.5 8.5 M17.5 8.5 C17 10 16.5 11 16.5 12.5 C16.5 14 15.8 15 15 15 Z" />
+    </>
+  ),
   chevron: <path d="M9.5 5.5 L16 12 L9.5 18.5" />,
   logout: (
     <>
