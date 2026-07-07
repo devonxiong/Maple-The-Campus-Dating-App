@@ -16,7 +16,14 @@ export function writeLang(lang: Lang) {
 // Localize a school name (from schoolFromEmail) for display.
 export function localizeSchool(school: string, lang: Lang): string {
   if (lang !== 'zh') return school
-  const map: Record<string, string> = { 'Tsinghua University': '清华大学' }
+  const map: Record<string, string> = {
+    'Pomona': '波莫纳学院',
+    'CMC': '克莱蒙特麦肯纳学院',
+    'HMC': '哈维马德学院',
+    'Scripps': '斯克里普斯学院',
+    'Pitzer': '匹泽学院',
+    'Claremont Colleges': '克莱蒙特联盟',
+  }
   return map[school] ?? school
 }
 

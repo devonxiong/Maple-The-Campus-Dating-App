@@ -18,11 +18,11 @@ export function buildSwipedSet(swipes: Pick<Swipe, 'to_user' | 'sentiment' | 'cr
 export function schoolFromEmail(email: string): string {
   const domain = email.split('@')[1]?.toLowerCase() ?? ''
   if (domain === 'pitzer.edu' || domain === 'students.pitzer.edu') return 'Pitzer'
-  if (domain === 'mymail.pomona.edu') return 'Pomona'
+  if (domain === 'pomona.edu' || domain === 'mymail.pomona.edu') return 'Pomona'
   if (domain === 'scrippscollege.edu') return 'Scripps'
   if (domain === 'claremontmckenna.edu' || domain === 'cmc.edu') return 'CMC'
-  if (domain === 'g.hmc.edu') return 'HMC'
-  return 'Tsinghua University'
+  if (domain === 'hmc.edu' || domain === 'g.hmc.edu') return 'HMC'
+  return 'Claremont Colleges'
 }
 
 /** Haversine distance in km */
