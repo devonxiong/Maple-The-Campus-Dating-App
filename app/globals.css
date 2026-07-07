@@ -364,6 +364,9 @@ body {
 .ctrl { height: 34px; padding: 0 .85rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--sub); font-size: 13px; font-weight: 500; cursor: pointer; transition: color .15s, border-color .15s; display: inline-flex; align-items: center; gap: .3rem; }
 .ctrl:hover { color: var(--foreground); border-color: var(--foreground); }
 
+/* toast */
+.feed-toast { position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%); background: var(--foreground); color: var(--background); padding: .6rem 1.1rem; border-radius: 999px; font-size: 13px; font-weight: 500; z-index: 50; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.2); animation: fadeIn .2s ease both; }
+
 /* error message */
 .err-msg { color: var(--danger); font-size: 13px; text-align: center; padding: .25rem 0; }
 .ok-msg { color: #3a9d5d; font-size: 13px; text-align: center; padding: .25rem 0; }
