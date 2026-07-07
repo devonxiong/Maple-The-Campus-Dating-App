@@ -146,6 +146,11 @@ body {
 
 .hint { font-size: 12px; color: var(--muted); margin: .4rem 0 0; line-height: 1.4; }
 
+.campus-chip { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: .7rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--foreground); font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color .15s; margin-bottom: 1.1rem; }
+.campus-chip:hover { border-color: var(--foreground); }
+.campus-chip .change { font-size: 12px; font-weight: 500; color: var(--muted); }
+.campus-chip:hover .change { color: var(--foreground); }
+
 .terms-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.1rem; max-height: 230px; overflow-y: auto; margin-bottom: 1rem; }
 .terms-box h4 { font-size: 13px; font-weight: 600; margin: .9rem 0 .3rem; }
 .terms-box h4:first-child { margin-top: 0; }
