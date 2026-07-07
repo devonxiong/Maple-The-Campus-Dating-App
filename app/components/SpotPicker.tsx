@@ -3,56 +3,54 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const AMAP_KEY = process.env.NEXT_PUBLIC_AMAP_KEY
-const AMAP_SECURITY = process.env.NEXT_PUBLIC_AMAP_SECURITY
-// Tsinghua University (清华大学), Beijing — AMap uses [lng, lat] (GCJ-02)
-const CAMPUS: [number, number] = [116.326, 40.0035]
-const RADIUS_M = 20
-const LIMIT_KM = 2 // keep the map within ~2km of campus
+const GMAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+// The Claremont Colleges consortium, Claremont CA. Google Maps uses {lat, lng}.
+const CAMPUS = { lat: 34.1017, lng: -117.7078 }
+const RADIUS_M = 30
+const LIMIT_DEG = 0.03 // ~3km box around campus
 
-let amapPromise: Promise<void> | null = null
-function loadAMap(): Promise<void> {
+let gmapsPromise: Promise<void> | null = null
+function loadGoogleMaps(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
-  if ((window as any).AMap) return Promise.resolve()
-  if (amapPromise) return amapPromise
-  amapPromise = new Promise((resolve, reject) => {
-    if (!AMAP_KEY) { reject(new Error('AMap key not set')); return }
-    if (AMAP_SECURITY) (window as any)._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY }
-    const existing = document.getElementById('amap-script') as HTMLScriptElement | null
+  if ((window as any).google?.maps) return Promise.resolve()
+  if (gmapsPromise) return gmapsPromise
+  gmapsPromise = new Promise((resolve, reject) => {
+    if (!GMAPS_KEY) { reject(new Error('Google Maps key not set')); return }
+    const existing = document.getElementById('gmaps-script') as HTMLScriptElement | null
     if (existing) {
       existing.addEventListener('load', () => resolve())
-      existing.addEventListener('error', () => reject(new Error('amap failed')))
+      existing.addEventListener('error', () => reject(new Error('gmaps failed')))
       return
     }
     const s = document.createElement('script')
-    s.id = 'amap-script'
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}&plugin=AMap.AutoComplete,AMap.PlaceSearch,AMap.Geocoder,AMap.Geolocation`
+    s.id = 'gmaps-script'
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&libraries=places`
     s.async = true
     s.onload = () => resolve()
-    s.onerror = () => reject(new Error('amap failed'))
+    s.onerror = () => reject(new Error('gmaps failed'))
     document.head.appendChild(s)
   })
-  return amapPromise
+  return gmapsPromise
 }
 
 const STR = {
   en: {
-    search: '🔍 Search a place — dorm, library, gym…',
-    loading: 'loading map…', myLoc: '📍 my location',
+    search: 'Search a place — dorm, library, dining hall…',
+    loading: 'loading map…', myLoc: 'my location',
     mapErr: "Map couldn't load — type your spot below instead.",
-    manualPh: 'e.g. Tsinghua Library', add: 'add',
-    added: 'added ✓', max: 'max 5', addThis: '+ add this spot',
-    hint: (r: number) => `Tap the map or search to drop a pin. The circle ≈ ${r}m around your spot. Add up to 5.`,
+    manualPh: 'e.g. Honnold Library', add: 'add',
+    added: 'added ✓', max: 'max 3', addThis: '+ add this spot',
+    hint: (r: number) => `Tap the map or search to drop a pin. The circle ≈ ${r}m around your spot. Add up to 3.`,
     denied: 'Location permission denied.',
     pinned: 'Pinned location',
   },
   zh: {
-    search: '🔍 搜索地点 — 宿舍、图书馆、食堂…',
-    loading: '地图加载中…', myLoc: '📍 我的位置',
+    search: '搜索地点 — 宿舍、图书馆、食堂…',
+    loading: '地图加载中…', myLoc: '我的位置',
     mapErr: '地图加载失败 — 请在下方手动输入地点。',
-    manualPh: '例如：清华大学图书馆', add: '添加',
-    added: '已添加 ✓', max: '最多 5 个', addThis: '+ 添加这个地点',
-    hint: (r: number) => `点地图或搜索来放一个图钉。圆圈约覆盖 ${r}m。最多添加 5 个。`,
+    manualPh: '例如：Honnold Library', add: '添加',
+    added: '已添加 ✓', max: '最多 3 个', addThis: '+ 添加这个地点',
+    hint: (r: number) => `点地图或搜索来放一个图钉。圆圈约覆盖 ${r}m。最多添加 3 个。`,
     denied: '定位权限被拒绝。',
     pinned: '选中的位置',
   },
@@ -66,7 +64,7 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
 }) {
   const L = STR[lang]
   const mapRef = useRef<HTMLDivElement>(null)
-  const inputId = 'amap-spot-search'
+  const searchRef = useRef<HTMLInputElement>(null)
   const objs = useRef<any>({})
   const [ready, setReady] = useState(false)
   const [err, setErr] = useState('')
@@ -75,113 +73,112 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
 
   useEffect(() => {
     let cancelled = false
-    loadAMap().then(() => {
+    loadGoogleMaps().then(() => {
       if (cancelled || !mapRef.current) return
-      const AMap = (window as any).AMap
+      const g = (window as any).google
 
-      const map = new AMap.Map(mapRef.current, {
+      const map = new g.maps.Map(mapRef.current, {
         zoom: 16,
         center: CAMPUS,
-        zooms: [14, 19], // min zoom keeps the view roughly campus-sized
-        resizeEnable: true,
+        minZoom: 14,
+        disableDefaultUI: true,
+        zoomControl: true,
+        clickableIcons: true,
+        restriction: {
+          latLngBounds: {
+            north: CAMPUS.lat + LIMIT_DEG, south: CAMPUS.lat - LIMIT_DEG,
+            east: CAMPUS.lng + LIMIT_DEG, west: CAMPUS.lng - LIMIT_DEG,
+          },
+          strictBounds: false,
+        },
       })
-      // Restrict panning to a ~2km box around campus
-      const dLat = LIMIT_KM / 111
-      const dLng = LIMIT_KM / (111 * Math.cos(CAMPUS[1] * Math.PI / 180))
-      const limit = new AMap.Bounds(
-        [CAMPUS[0] - dLng, CAMPUS[1] - dLat],
-        [CAMPUS[0] + dLng, CAMPUS[1] + dLat],
-      )
-      map.setLimitBounds(limit)
-      const marker = new AMap.Marker({ position: CAMPUS, draggable: true })
-      const circle = new AMap.Circle({
-        center: CAMPUS, radius: RADIUS_M,
-        strokeColor: '#e0654f', strokeOpacity: 0.6, strokeWeight: 1.5,
-        fillColor: '#e0654f', fillOpacity: 0.15,
+      const marker = new g.maps.Marker({ position: CAMPUS, map, draggable: true })
+      const circle = new g.maps.Circle({
+        map, center: CAMPUS, radius: RADIUS_M,
+        strokeColor: '#c6822f', strokeOpacity: 0.7, strokeWeight: 1.5,
+        fillColor: '#c6822f', fillOpacity: 0.15,
       })
-      map.add(marker)
-      map.add(circle)
-      const geocoder = new AMap.Geocoder({ city: '北京' })
-      const placeSearch = new AMap.PlaceSearch({ city: '北京', pageSize: 1 })
-      objs.current = { AMap, map, marker, circle, geocoder, placeSearch }
+      const geocoder = new g.maps.Geocoder()
+      objs.current = { g, map, marker, circle, geocoder }
 
-      const setPos = (lnglat: any, name?: string) => {
-        marker.setPosition(lnglat)
-        circle.setCenter(lnglat)
-        map.setCenter(lnglat)
+      const setPos = (latLng: any, name?: string) => {
+        marker.setPosition(latLng)
+        circle.setCenter(latLng)
+        map.panTo(latLng)
         if (name) { setActiveName(name); return }
-        geocoder.getAddress(lnglat, (status: string, result: any) => {
-          if (status === 'complete' && result.regeocode) {
-            const rc = result.regeocode
-            const poi = rc.pois && rc.pois[0]?.name
-            setActiveName(poi || rc.formattedAddress || L.pinned)
+        geocoder.geocode({ location: latLng }, (results: any[], status: string) => {
+          if (status === 'OK' && results?.[0]) {
+            const r = results[0]
+            // Prefer a place/POI-ish name over the full street address.
+            const short = r.address_components?.[0]?.long_name
+            setActiveName(short && !/^\d/.test(short) ? short : (r.formatted_address?.split(',')[0] || L.pinned))
           } else {
             setActiveName(L.pinned)
           }
         })
       }
 
-      marker.on('dragend', (e: any) => setPos(e.lnglat))
-      map.on('click', (e: any) => setPos(e.lnglat))
+      marker.addListener('dragend', (e: any) => setPos(e.latLng))
+      map.addListener('click', (e: any) => setPos(e.latLng))
 
-      // Search autocomplete bound to the input
-      const auto = new AMap.AutoComplete({ input: inputId, city: '北京' })
-      auto.on('select', (e: any) => {
-        const poi = e.poi
-        if (poi?.location) {
-          map.setZoom(17)
-          setPos([poi.location.lng, poi.location.lat], poi.name)
-        } else if (poi?.name) {
-          placeSearch.search(poi.name, (status: string, result: any) => {
-            const p = result?.poiList?.pois?.[0]
-            if (status === 'complete' && p?.location) {
-              map.setZoom(17)
-              setPos([p.location.lng, p.location.lat], poi.name)
-            }
-          })
-        }
-      })
+      // Places autocomplete on the search box, biased to campus.
+      if (searchRef.current && g.maps.places) {
+        const bounds = new g.maps.LatLngBounds(
+          { lat: CAMPUS.lat - LIMIT_DEG, lng: CAMPUS.lng - LIMIT_DEG },
+          { lat: CAMPUS.lat + LIMIT_DEG, lng: CAMPUS.lng + LIMIT_DEG },
+        )
+        const auto = new g.maps.places.Autocomplete(searchRef.current, {
+          bounds, fields: ['name', 'geometry'],
+        })
+        auto.setOptions({ strictBounds: false })
+        auto.addListener('place_changed', () => {
+          const place = auto.getPlace()
+          if (place?.geometry?.location) {
+            map.setZoom(17)
+            setPos(place.geometry.location, place.name)
+          }
+        })
+      }
 
       setPos(CAMPUS)
       setReady(true)
-    }).catch(() => {
-      setErr(L.mapErr)
-    })
+    }).catch(() => { setErr(L.mapErr) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function useMyLocation() {
-    const { AMap, map } = objs.current
-    if (!AMap || !map) return
-    const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000 })
-    geo.getCurrentPosition((status: string, result: any) => {
-      if (status === 'complete' && result.position) {
-        const lnglat = [result.position.lng, result.position.lat]
-        const { marker, circle, geocoder } = objs.current
-        marker.setPosition(lnglat); circle.setCenter(lnglat); map.setCenter(lnglat); map.setZoom(17)
-        geocoder.getAddress(lnglat, (s: string, r: any) => {
-          const rc = r?.regeocode
-          setActiveName((rc?.pois && rc.pois[0]?.name) || rc?.formattedAddress || L.pinned)
+    if (!navigator.geolocation) { setErr(L.denied); return }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { g, map, marker, circle, geocoder } = objs.current
+        if (!g || !map) return
+        const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        marker.setPosition(latLng); circle.setCenter(latLng); map.panTo(latLng); map.setZoom(17)
+        geocoder.geocode({ location: latLng }, (results: any[], status: string) => {
+          setActiveName(status === 'OK' && results?.[0]
+            ? (results[0].formatted_address?.split(',')[0] || L.pinned)
+            : L.pinned)
         })
-      } else {
-        setErr(L.denied)
-      }
-    })
+      },
+      () => setErr(L.denied),
+      { enableHighAccuracy: true, timeout: 8000 },
+    )
   }
 
   const alreadyAdded = activeName && spots.some(s => s.toLowerCase() === activeName.toLowerCase())
-  const full = spots.length >= 5
+  const full = spots.length >= 3
 
   return (
     <div className="space-y-3">
       {/* Search */}
       <input
-        id={inputId}
+        ref={searchRef}
         type="text"
         autoComplete="off"
         placeholder={L.search}
-        className="w-full bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm text-[#111] placeholder:text-[#c5c0bb] focus:outline-none focus:border-[#111] transition-colors"
+        className="input"
+        style={{ width: '100%' }}
       />
 
       {/* Map */}
@@ -221,7 +218,7 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
           onClick={() => { onAdd(activeName) }}
           className="w-full flex items-center justify-between gap-2 bg-white border border-[#e8e6e1] rounded-xl px-4 py-3 text-sm hover:border-[#111] transition-colors disabled:opacity-50"
         >
-          <span className="text-[#111] font-medium truncate">📍 {activeName}</span>
+          <span className="text-[#111] font-medium truncate">{activeName}</span>
           <span className="text-xs text-[#6b6760] shrink-0">
             {alreadyAdded ? L.added : full ? L.max : L.addThis}
           </span>
@@ -233,7 +230,7 @@ export default function SpotPicker({ spots, onAdd, onRemove, lang = 'en' }: {
         <div className="flex flex-wrap gap-1.5">
           {spots.map(s => (
             <button key={s} type="button" onClick={() => onRemove(s)}
-              className="flex items-center gap-1 bg-[#f1efea] text-[#111] text-xs font-medium rounded-full pl-3 pr-2 py-1.5 hover:bg-[#e8e6e1] transition-colors">
+              className="flex items-center gap-1 bg-[#e8e6e1] text-[#111] text-xs font-medium rounded-full pl-3 pr-2 py-1.5 hover:bg-[#e8e6e1] transition-colors">
               {s} <span className="text-[#9b9590]">×</span>
             </button>
           ))}
