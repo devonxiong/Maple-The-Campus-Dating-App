@@ -40,6 +40,13 @@ function ProfileContent() {
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteOk, setInviteOk] = useState(false)
   const [delStep, setDelStep] = useState<null | 'confirm' | 'crying'>(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [eName, setEName] = useState('')
+  const [eGender, setEGender] = useState('')
+  const [eInto, setEInto] = useState<string[]>([])
+  const [eYear, setEYear] = useState('')
+  const [eAge, setEAge] = useState('')
+  const [saving, setSaving] = useState(false)
   const [lang, toggleLang] = useLang()
   const t = PROFILE[lang]
   const zh = lang === 'zh'
@@ -116,6 +123,32 @@ function ProfileContent() {
     localStorage.removeItem('anlan_user_name')
     localStorage.removeItem('anlan_match_id')
     router.push('/')
+  }
+
+  function openEdit() {
+    if (!user) return
+    setEName(user.name ?? '')
+    setEGender(user.gender ?? '')
+    setEInto(Array.isArray(user.want_to_date) ? user.want_to_date : [])
+    const d = user as unknown as Record<string, unknown>
+    setEYear((d.year as string) ?? '')
+    setEAge(d.age != null ? String(d.age) : '')
+    setShowEdit(true)
+  }
+
+  async function saveProfile() {
+    if (!user) return
+    if (!eName.trim()) { showToast(zh ? '请填写名字' : 'Add your name'); return }
+    if (eInto.length === 0) { showToast(zh ? '请选择想认识的人' : 'Pick who you’re into'); return }
+    setSaving(true)
+    try {
+      await supabase.from('users').update({ name: eName.trim(), gender: eGender, want_to_date: eInto }).eq('id', user.id)
+      if (eYear) await supabase.from('users').update({ year: eYear }).eq('id', user.id).then(() => {}, () => {})
+      if (eAge) await supabase.from('users').update({ age: Number(eAge) }).eq('id', user.id).then(() => {}, () => {})
+      setUser({ ...user, name: eName.trim(), gender: eGender, want_to_date: eInto } as User)
+      setShowEdit(false)
+      showToast(t.tSaved)
+    } catch { showToast(t.tUploadFail) } finally { setSaving(false) }
   }
 
   async function sendInvite() {
@@ -232,8 +265,8 @@ function ProfileContent() {
             <div className="me-info">
               <span className="me-name">{user.name} <span className="verified"><HandIcon name="check" size={12} /></span></span>
               <div className="me-meta">{meta}</div>
-              <button className="customize" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                {uploading ? t.uploading : (zh ? '编辑资料 →' : 'Edit profile →')}
+              <button className="customize" onClick={openEdit}>
+                {zh ? '编辑资料 →' : 'Edit profile →'}
               </button>
             </div>
           </div>
@@ -289,6 +322,70 @@ function ProfileContent() {
           <div style={{ width: '100%', maxWidth: 440, background: 'var(--background)', borderRadius: '20px 20px 0 0', padding: '1.5rem 1.25rem 2rem' }} onClick={e => e.stopPropagation()}>
             <p className="font-display" style={{ fontSize: 17, fontWeight: 600, textAlign: 'center', marginBottom: '1rem' }}>{zh ? '调整照片' : 'Adjust photo'}</p>
             <PhotoCropper file={pendingFile} onDone={uploadCropped} onCancel={() => setPendingFile(null)} busy={uploading} lang={lang} />
+          </div>
+        </div>
+      )}
+
+      {/* Edit profile sheet */}
+      {showEdit && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => !saving && setShowEdit(false)}>
+          <div style={{ width: '100%', maxWidth: 440, maxHeight: '88vh', overflowY: 'auto', background: 'var(--background)', borderRadius: '20px 20px 0 0', padding: '1.4rem 1.25rem 2.2rem' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <p className="font-display" style={{ fontSize: 19, fontWeight: 600, margin: 0 }}>{zh ? '编辑资料' : 'Edit profile'}</p>
+              <button className="back" onClick={() => setShowEdit(false)}><HandIcon name="close" size={18} /></button>
+            </div>
+
+            {/* Photo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.1rem' }}>
+              <div className="me-photo" style={{ width: 64, height: 64, borderRadius: '50%', background: avatarUrl ? undefined : gradient(user.id), fontSize: 26 }} onClick={() => fileRef.current?.click()}>
+                {avatarUrl ? <img src={avatarUrl} alt="" /> : user.name[0].toUpperCase()}
+              </div>
+              <button className="customize" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                {uploading ? t.uploading : (zh ? '换照片' : 'Change photo')}
+              </button>
+            </div>
+
+            <div className="stack" style={{ gap: '.9rem' }}>
+              <div>
+                <label className="label">{zh ? '名字' : 'Name'}</label>
+                <input className="input" value={eName} onChange={e => setEName(e.target.value)} />
+              </div>
+              <div className="row">
+                <div style={{ flex: '0 0 90px' }}>
+                  <label className="label">{zh ? '年龄' : 'Age'}</label>
+                  <input className="input" inputMode="numeric" placeholder="20" value={eAge} onChange={e => setEAge(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="label">{zh ? '年级' : 'Year'}</label>
+                  <div className="chips">
+                    {[['First-year', zh ? '大一' : 'First-year'], ['Sophomore', zh ? '大二' : 'Sophomore'], ['Junior', zh ? '大三' : 'Junior'], ['Senior', zh ? '大四' : 'Senior'], ['Grad', zh ? '研究生' : 'Grad']].map(([v, l]) => (
+                      <button key={v} className={`chip${eYear === v ? ' active' : ''}`} onClick={() => setEYear(v)}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="label">{zh ? '性别' : 'Gender'}</label>
+                <div className="chips">
+                  {[['Man', zh ? '男生' : 'Man'], ['Woman', zh ? '女生' : 'Woman'], ['Non-binary', zh ? '非二元' : 'Non-binary']].map(([v, l]) => (
+                    <button key={v} className={`chip${eGender === v ? ' active' : ''}`} onClick={() => setEGender(v)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">{zh ? '想认识' : 'Interested in'}</label>
+                <div className="chips">
+                  {[['Men', zh ? '男生' : 'Men'], ['Women', zh ? '女生' : 'Women'], ['Non-binary', zh ? '非二元' : 'Non-binary']].map(([v, l]) => (
+                    <button key={v} className={`chip${eInto.includes(v) ? ' active' : ''}`}
+                      onClick={() => setEInto(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="wiz-foot" style={{ marginTop: '1.4rem' }}>
+              <button className="btn btn-primary" onClick={saveProfile} disabled={saving}>{saving ? (zh ? '保存中…' : 'Saving…') : (zh ? '保存' : 'Save')}</button>
+            </div>
           </div>
         </div>
       )}

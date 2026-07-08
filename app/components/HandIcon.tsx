@@ -11,6 +11,7 @@ export type IconName =
   | 'bell' | 'gear' | 'globe' | 'moon' | 'sun' | 'plus' | 'check' | 'handshake'
   | 'close' | 'chevron' | 'logout' | 'trash' | 'seeNoEvil' | 'chat' | 'grad'
   | 'calendar' | 'robot' | 'quote'
+  | 'phone' | 'flag' | 'siren' | 'idcard' | 'brain' | 'lifebuoy' | 'cup' | 'share'
 
 const P: Record<IconName, React.ReactNode> = {
   gradcap: (
@@ -179,6 +180,55 @@ const P: Record<IconName, React.ReactNode> = {
     <>
       <path d="M12 4.2 L21.5 8.3 L12 12.6 L2.5 8.3 Z" />
       <path d="M6 10.2 V14.8 C6 16.5 18 16.5 18 14.8 V10.2" />
+    </>
+  ),
+  phone: <path d="M6.5 4 C5.5 4 4.5 4.8 4.4 6 C4 12 9.5 19 16 19.6 C17.2 19.7 18 18.7 18 17.7 L18 15.2 C18 14.4 17.4 13.8 16.6 13.7 L14.4 13.4 C13.9 13.3 13.4 13.5 13.1 13.9 L12.2 15 C10.2 13.9 8.6 12.3 7.6 10.3 L8.7 9.4 C9.1 9.1 9.3 8.6 9.2 8.1 L8.9 5.9 C8.8 5.1 8.1 4.5 7.3 4.5 Z" />,
+  flag: (
+    <>
+      <path d="M6 20 V4" />
+      <path d="M6 5 C10 2.5 14 7.5 18 5 V13 C14 15.5 10 10.5 6 13" />
+    </>
+  ),
+  siren: (
+    <>
+      <path d="M6 18 V13 A6 6 0 0 1 18 13 V18 Z" />
+      <path d="M4.5 18 H19.5" />
+      <path d="M12 4.5 V6.5 M20 8 L18.4 9 M4 8 L5.6 9" />
+    </>
+  ),
+  idcard: (
+    <>
+      <rect x="3.5" y="6" width="17" height="12" rx="2" />
+      <circle cx="8.5" cy="11" r="2" />
+      <path d="M5.5 15.5 C5.5 13.8 11.5 13.8 11.5 15.5" />
+      <path d="M14 10 H18 M14 13 H18" />
+    </>
+  ),
+  brain: (
+    <>
+      <path d="M9.5 5 A2.4 2.4 0 0 0 6.2 6.6 A2.3 2.3 0 0 0 4.4 9.6 A2.4 2.4 0 0 0 4.4 13.8 A2.3 2.3 0 0 0 6.6 16.6 A2.4 2.4 0 0 0 9.5 18 V5 Z" />
+      <path d="M14.5 5 A2.4 2.4 0 0 1 17.8 6.6 A2.3 2.3 0 0 1 19.6 9.6 A2.4 2.4 0 0 1 19.6 13.8 A2.3 2.3 0 0 1 17.4 16.6 A2.4 2.4 0 0 1 14.5 18 V5 Z" />
+      <path d="M12 5 V18" />
+    </>
+  ),
+  lifebuoy: (
+    <>
+      <circle cx="12" cy="12" r="8.4" />
+      <circle cx="12" cy="12" r="3.4" />
+      <path d="M9.6 9.6 L6 6 M14.4 9.6 L18 6 M9.6 14.4 L6 18 M14.4 14.4 L18 18" />
+    </>
+  ),
+  cup: (
+    <>
+      <path d="M5.5 7 H16.5 V13 A4.5 4.5 0 0 1 12 17.5 H10 A4.5 4.5 0 0 1 5.5 13 Z" />
+      <path d="M16.5 8.5 H18.5 A2 2 0 0 1 18.5 12.5 H16.5" />
+      <path d="M6 20 H16" />
+    </>
+  ),
+  share: (
+    <>
+      <circle cx="6" cy="12" r="2.4" /><circle cx="17.5" cy="6" r="2.4" /><circle cx="17.5" cy="18" r="2.4" />
+      <path d="M8.1 10.9 L15.4 7.1 M8.1 13.1 L15.4 16.9" />
     </>
   ),
 }

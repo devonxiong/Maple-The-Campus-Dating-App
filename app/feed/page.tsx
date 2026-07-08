@@ -799,13 +799,13 @@ export default function FeedPage() {
               <div className="w-full max-w-[280px] bg-white border border-[#e8e6e1] rounded-2xl px-5 py-4 text-left space-y-3">
                 <p className="text-xs font-medium text-[#111]">{t.whileYouWait}</p>
                 <div className="flex items-start gap-2.5">
-                  <span className="text-sm mt-0.5">📨</span>
+                  <span className="mt-0.5" style={{ color: 'var(--foreground)' }}><HandIcon name="envelope" size={15} /></span>
                   <p className="text-xs text-[#6b6760] leading-relaxed">
                     {t.waitTip1}
                   </p>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <span className="text-sm mt-0.5">🍁</span>
+                  <span className="mt-0.5" style={{ color: 'var(--foreground)' }}><HandIcon name="person" size={15} /></span>
                   <p className="text-xs text-[#6b6760] leading-relaxed">
                     {t.waitTip2}
                   </p>
