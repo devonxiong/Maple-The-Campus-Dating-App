@@ -58,6 +58,38 @@ export default function MapleEyes({
   )
 }
 
+/** Sad / crying eyes — looking down, with a tear falling from each. */
+export function MapleEyesCrying({ width = 150 }: { width?: number }) {
+  return (
+    <svg viewBox="0 0 190 128" width={width} aria-label="crying" fill="none">
+      {/* sad brows */}
+      <path d="M30 18 L66 30" stroke="var(--foreground)" strokeWidth="4" strokeLinecap="round" />
+      <path d="M160 18 L124 30" stroke="var(--foreground)" strokeWidth="4" strokeLinecap="round" />
+      {/* left eye */}
+      <circle cx="52" cy="52" r="38" fill="var(--card)" stroke="var(--foreground)" strokeWidth="4" />
+      <g>
+        <circle cx="52" cy="64" r="15" fill="var(--foreground)" />
+        <circle cx="47" cy="59" r="4.5" fill="var(--card)" />
+      </g>
+      {/* right eye */}
+      <circle cx="138" cy="52" r="38" fill="var(--card)" stroke="var(--foreground)" strokeWidth="4" />
+      <g>
+        <circle cx="138" cy="64" r="15" fill="var(--foreground)" />
+        <circle cx="133" cy="59" r="4.5" fill="var(--card)" />
+      </g>
+      {/* tears */}
+      <path d="M40 92 C 47 100, 47 110, 40 112 C 33 110, 33 100, 40 92 Z" fill="#79b6e8">
+        <animate attributeName="opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="0 -6; 0 10" dur="1.8s" repeatCount="indefinite" />
+      </path>
+      <path d="M150 92 C 157 100, 157 110, 150 112 C 143 110, 143 100, 150 92 Z" fill="#79b6e8">
+        <animate attributeName="opacity" values="0;1;1;0" dur="1.8s" begin="0.6s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="0 -6; 0 12" dur="1.8s" begin="0.6s" repeatCount="indefinite" />
+      </path>
+    </svg>
+  )
+}
+
 /** The little hand-drawn doodle line under the splash (martini + mountains). */
 export function MapleDoodles() {
   return (

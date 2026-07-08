@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { User } from '@/types'
 import { schoolFromEmail } from '@/lib/score'
 import { useLang, PROFILE, localizeSchool } from '@/lib/i18n'
-import MapleEyes from '../components/MapleEyes'
+import MapleEyes, { MapleEyesCrying } from '../components/MapleEyes'
 import HandIcon, { IconName } from '../components/HandIcon'
 import PhotoCropper from '../components/PhotoCropper'
 
@@ -35,6 +35,11 @@ function ProfileContent() {
   const [darkMode, setDarkMode] = useState(false)
   const [geotracking, setGeotracking] = useState(true)
   const [agentEnabled, setAgentEnabled] = useState(true)
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [inviteOk, setInviteOk] = useState(false)
+  const [delStep, setDelStep] = useState<null | 'confirm' | 'crying'>(null)
   const [lang, toggleLang] = useLang()
   const t = PROFILE[lang]
   const zh = lang === 'zh'
@@ -111,6 +116,37 @@ function ProfileContent() {
     localStorage.removeItem('anlan_user_name')
     localStorage.removeItem('anlan_match_id')
     router.push('/')
+  }
+
+  async function sendInvite() {
+    const em = inviteEmail.trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { showToast(zh ? '请输入有效邮箱' : 'Enter a valid email'); return }
+    setInviteBusy(true)
+    try {
+      const res = await fetch('/api/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to_email: em, from_name: user?.name ?? 'A friend' }),
+      })
+      if (!res.ok) { showToast(zh ? '发送失败，请重试' : 'Failed to send. Try again.'); return }
+      setInviteOk(true); setInviteEmail('')
+      setTimeout(() => { setShowInvite(false); setInviteOk(false) }, 1500)
+    } catch { showToast(zh ? '网络错误' : 'Network error') } finally { setInviteBusy(false) }
+  }
+
+  async function deleteAccount() {
+    setDelStep('crying')
+    const userId = localStorage.getItem('anlan_user_id')
+    try {
+      await fetch('/api/delete-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }),
+      })
+    } catch { /* proceed to sign out regardless */ }
+    setTimeout(() => {
+      localStorage.removeItem('anlan_user_id')
+      localStorage.removeItem('anlan_user_name')
+      localStorage.removeItem('anlan_match_id')
+      router.push('/')
+    }, 2400)
   }
 
   if (loading) {
@@ -230,12 +266,13 @@ function ProfileContent() {
 
           <p className="date-sec-label" style={{ marginTop: '1.4rem' }}>{zh ? '账号' : 'Account'}</p>
           <div className="me-list">
+            <Row icon="envelope" title={zh ? '邀请朋友' : 'Invite a friend'} sub={zh ? '发给同校的人一个链接' : 'Send a classmate a link'} onClick={() => { setShowInvite(true); setInviteOk(false) }} />
             <Row icon="grad" title={zh ? '学校' : 'Campus'} sub={zh ? '已验证学生' : 'Verified student'}
               right={<span className="me-row-val">{localizeSchool(school, lang)} ✓</span>} />
             <Row icon="chat" title={zh ? '帮助与支持' : 'Help & support'} sub="hello@maplemeet.ai"
               onClick={() => { window.location.href = 'mailto:hello@maplemeet.ai' }} />
             <Row icon="logout" title={zh ? '退出登录' : 'Log out'} onClick={handleLogout} />
-            <Row icon="trash" title={zh ? '删除账号' : 'Delete account'} danger onClick={soon} />
+            <Row icon="trash" title={zh ? '删除账号' : 'Delete account'} danger onClick={() => setDelStep('confirm')} />
           </div>
         </div>
 
@@ -252,6 +289,59 @@ function ProfileContent() {
           <div style={{ width: '100%', maxWidth: 440, background: 'var(--background)', borderRadius: '20px 20px 0 0', padding: '1.5rem 1.25rem 2rem' }} onClick={e => e.stopPropagation()}>
             <p className="font-display" style={{ fontSize: 17, fontWeight: 600, textAlign: 'center', marginBottom: '1rem' }}>{zh ? '调整照片' : 'Adjust photo'}</p>
             <PhotoCropper file={pendingFile} onDone={uploadCropped} onCancel={() => setPendingFile(null)} busy={uploading} lang={lang} />
+          </div>
+        </div>
+      )}
+
+      {/* Invite modal */}
+      {showInvite && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => !inviteBusy && setShowInvite(false)}>
+          <div style={{ width: '100%', maxWidth: 440, background: 'var(--background)', borderRadius: '20px 20px 0 0', padding: '1.6rem 1.25rem 2.2rem', display: 'flex', flexDirection: 'column', gap: '.9rem', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+            <span style={{ color: 'var(--accent)' }}><HandIcon name="envelope" size={34} /></span>
+            <p className="font-display" style={{ fontSize: 19, fontWeight: 600, margin: 0 }}>{zh ? '邀请朋友' : 'Invite a friend'}</p>
+            {inviteOk ? (
+              <p className="ok-msg" style={{ padding: '1rem 0' }}>{zh ? '邀请已发送 ✓' : 'Invite sent ✓'}</p>
+            ) : (
+              <>
+                <p className="hint" style={{ textAlign: 'center', marginTop: 0, maxWidth: 300 }}>
+                  {zh ? '认识谁应该来这儿？填他的校园邮箱，我们帮你发邀请。' : "Know someone who should be here? Drop their .edu email and we'll send them an invite."}
+                </p>
+                <input className="input" type="email" placeholder="their@school.edu" value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendInvite()}
+                  style={{ maxWidth: 320, textAlign: 'center' }} autoFocus />
+                <button className="btn btn-primary" style={{ maxWidth: 320 }} onClick={sendInvite} disabled={inviteBusy}>
+                  {inviteBusy ? (zh ? '发送中…' : 'Sending…') : (zh ? '发送邀请' : 'Send invite')}
+                </button>
+              </>
+            )}
+            <button className="btn btn-secondary" style={{ maxWidth: 320 }} onClick={() => setShowInvite(false)}>{zh ? '关闭' : 'Close'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete account flow */}
+      {delStep && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={() => delStep === 'confirm' && setDelStep(null)}>
+          <div style={{ width: '100%', maxWidth: 360, background: 'var(--background)', borderRadius: 22, padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            {delStep === 'confirm' ? (
+              <>
+                <MapleEyes width={110} strokeWidth={4} tap={false} />
+                <p className="font-display" style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>{zh ? '确定要删除吗？' : 'Are you sure?'}</p>
+                <p className="hint" style={{ textAlign: 'center', marginTop: 0, maxWidth: 280 }}>
+                  {zh ? '这会永久删除你的账号和所有数据，无法恢复。' : "This permanently deletes your account and everything on it. This can't be undone."}
+                </p>
+                <button className="btn" style={{ background: 'var(--danger)', color: '#fff', borderColor: 'var(--danger)' }} onClick={deleteAccount}>
+                  {zh ? '永久删除' : 'Delete forever'}
+                </button>
+                <button className="btn btn-secondary" onClick={() => setDelStep(null)}>{zh ? '取消' : 'Cancel'}</button>
+              </>
+            ) : (
+              <>
+                <MapleEyesCrying width={150} />
+                <p className="font-display" style={{ fontSize: 19, fontWeight: 600, margin: 0 }}>{zh ? '正在删除账号…' : 'Deleting your account…'}</p>
+                <p className="hint" style={{ textAlign: 'center', marginTop: 0 }}>{zh ? '很遗憾看到你离开。' : "We're sad to see you go."}</p>
+              </>
+            )}
           </div>
         </div>
       )}
