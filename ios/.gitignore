@@ -1,0 +1,12 @@
+# Secrets — never commit real keys
+MapleiOS/Config/Secrets.xcconfig
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# macOS
+.DS_Store

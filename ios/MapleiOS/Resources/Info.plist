@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key>
+  <string>Maple</string>
+  <key>CFBundleName</key>
+  <string>Maple</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+  <key>UILaunchScreen</key>
+  <dict>
+    <key>UIColorName</key>
+    <string>MapleCream</string>
+  </dict>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+  </array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+
+  <!-- Config injected from Secrets.xcconfig so no secrets live in source. -->
+  <key>MapleSupabaseURL</key>
+  <string>$(MAPLE_SUPABASE_URL)</string>
+  <key>MapleSupabaseAnonKey</key>
+  <string>$(MAPLE_SUPABASE_ANON_KEY)</string>
+  <key>MapleAPIBase</key>
+  <string>$(MAPLE_API_BASE)</string>
+
+  <!-- Permission strings (App Store requires clear purpose). -->
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Maple uses your approximate location to suggest date spots near both of you and surface people who move through campus the way you do. You can turn this off anytime.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Take a profile photo so your matches know it's really you.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Choose a profile photo, or upload a schedule screenshot so Maple can find a time you're both free.</string>
+  <key>NSContactsUsageDescription</key>
+  <string>Optionally find classmates already on Maple. Contacts are never stored on our servers.</string>
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+</dict>
+</plist>
