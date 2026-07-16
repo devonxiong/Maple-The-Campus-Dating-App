@@ -20,11 +20,21 @@ function gradient(id: string) {
   return GRADIENTS[n % GRADIENTS.length]
 }
 
+function ago(iso: string, zh: boolean): string {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return zh ? '刚刚' : 'now'
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86400) return `${Math.floor(s / 3600)}h`
+  return `${Math.floor(s / 86400)}d`
+}
+
 type MatchRow = { id: string; other: User; isNew: boolean }
+type LastMsg = { body: string; at: string; mine: boolean }
 
 export default function MatchesPage() {
   const router = useRouter()
   const [matches, setMatches] = useState<MatchRow[]>([])
+  const [last, setLast] = useState<Record<string, LastMsg>>({})
   const [loading, setLoading] = useState(true)
   const [lang] = useLang()
   const zh = lang === 'zh'
@@ -33,27 +43,43 @@ export default function MatchesPage() {
     if (localStorage.getItem('maple_dark') === 'true') document.documentElement.classList.add('dark')
     const userId = localStorage.getItem('anlan_user_id')
     if (!userId) { router.push('/'); return }
-    supabase
-      .from('matches')
-      .select('id, status, user_a, user_b, created_at, user_a_profile:users!matches_user_a_fkey(*), user_b_profile:users!matches_user_b_fkey(*)')
-      .or(`user_a.eq.${userId},user_b.eq.${userId}`)
-      .neq('status', 'cancelled')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        const rows: MatchRow[] = (data ?? []).map((m: Record<string, unknown>) => {
-          const isA = m.user_a === userId
-          const other = (isA ? m.user_b_profile : m.user_a_profile) as User
-          return { id: m.id as string, other, isNew: m.status === 'released' }
-        }).filter(r => r.other)
-        setMatches(rows)
-        setLoading(false)
-      })
+    async function load() {
+      const { data } = await supabase
+        .from('matches')
+        .select('id, status, user_a, user_b, created_at, user_a_profile:users!matches_user_a_fkey(*), user_b_profile:users!matches_user_b_fkey(*)')
+        .or(`user_a.eq.${userId},user_b.eq.${userId}`)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+      const rows: MatchRow[] = (data ?? []).map((m: Record<string, unknown>) => {
+        const isA = m.user_a === userId
+        const other = (isA ? m.user_b_profile : m.user_a_profile) as User
+        return { id: m.id as string, other, isNew: m.status === 'released' }
+      }).filter(r => r.other)
+      setMatches(rows)
+
+      const ids = rows.map(r => r.id)
+      if (ids.length) {
+        const { data: msgs } = await supabase
+          .from('messages').select('match_id, body, created_at, sender_id')
+          .in('match_id', ids).order('created_at', { ascending: false })
+        const map: Record<string, LastMsg> = {}
+        for (const m of (msgs ?? []) as { match_id: string; body: string; created_at: string; sender_id: string }[]) {
+          if (!map[m.match_id]) map[m.match_id] = { body: m.body, at: m.created_at, mine: m.sender_id === userId }
+        }
+        setLast(map)
+      }
+      setLoading(false)
+    }
+    load()
   }, [router])
 
   function openMatch(id: string) {
     localStorage.setItem('anlan_match_id', id)
     router.push('/chat/' + id)
   }
+
+  const chats = matches.filter(m => last[m.id]).sort((a, b) => last[b.id].at.localeCompare(last[a.id].at))
+  const fresh = matches.filter(m => !last[m.id])
 
   const Nav = (
     <nav className="feed-nav" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 440, zIndex: 30 }}>
@@ -90,21 +116,49 @@ export default function MatchesPage() {
             </div>
           ) : (
             <>
-              <h3 className="sec-title">{zh ? '新匹配' : 'New matches'}</h3>
-              <div className="match-strip">
-                {matches.map(m => (
-                  <div key={m.id} className="match-card" onClick={() => openMatch(m.id)}>
-                    <div className="match-photo" style={{ background: gradient(m.other.id) }}>
-                      {m.isNew && <span className="match-new">NEW</span>}
-                      {m.other.avatar_url
-                        ? <img src={m.other.avatar_url} alt={m.other.name} />
-                        : <span className="initial">{m.other.name[0].toUpperCase()}</span>}
-                    </div>
-                    <p className="match-name">{m.other.name.split(' ')[0]}</p>
+              {fresh.length > 0 && (
+                <>
+                  <h3 className="sec-title">{zh ? '新匹配' : 'New matches'}</h3>
+                  <div className="match-strip">
+                    {fresh.map(m => (
+                      <div key={m.id} className="match-card" onClick={() => openMatch(m.id)}>
+                        <div className="match-photo" style={{ background: gradient(m.other.id) }}>
+                          {m.isNew && <span className="match-new">NEW</span>}
+                          {m.other.avatar_url
+                            ? <img src={m.other.avatar_url} alt={m.other.name} />
+                            : <span className="initial">{m.other.name[0].toUpperCase()}</span>}
+                        </div>
+                        <p className="match-name">{m.other.name.split(' ')[0]}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <p className="match-hint">{zh ? '点一个匹配开始聊天 ↓' : 'Tap a match to start chatting ↓'}</p>
+                  <p className="match-hint">{zh ? '点一个匹配开始聊天 ↓' : 'Tap a match to start chatting ↓'}</p>
+                </>
+              )}
+
+              {chats.length > 0 && (
+                <>
+                  <h3 className="sec-title" style={{ marginTop: fresh.length > 0 ? '.5rem' : 0 }}>{zh ? '我的聊天' : 'My chats'}</h3>
+                  <div>
+                    {chats.map(m => (
+                      <div key={m.id} className="chat-row" onClick={() => openMatch(m.id)}>
+                        <div className="chat-av" style={{ background: gradient(m.other.id) }}>
+                          {m.other.avatar_url
+                            ? <img src={m.other.avatar_url} alt={m.other.name} />
+                            : m.other.name[0].toUpperCase()}
+                        </div>
+                        <div className="chat-main">
+                          <strong>{m.other.name.split(' ')[0]}</strong>
+                          <span className="msg">{last[m.id].mine ? (zh ? '你：' : 'You: ') : ''}{last[m.id].body}</span>
+                        </div>
+                        <div className="chat-side">
+                          <span className="chat-time">{ago(last[m.id].at, zh)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
