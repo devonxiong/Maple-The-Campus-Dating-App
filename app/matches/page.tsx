@@ -52,7 +52,7 @@ export default function MatchesPage() {
 
   function openMatch(id: string) {
     localStorage.setItem('anlan_match_id', id)
-    router.push('/match')
+    router.push('/chat/' + id)
   }
 
   const Nav = (
@@ -104,7 +104,7 @@ export default function MatchesPage() {
                   </div>
                 ))}
               </div>
-              <p className="match-hint">{zh ? '点一个匹配查看你们的约会 ↓' : 'Tap a match to see your date ↓'}</p>
+              <p className="match-hint">{zh ? '点一个匹配开始聊天 ↓' : 'Tap a match to start chatting ↓'}</p>
             </>
           )}
         </div>
