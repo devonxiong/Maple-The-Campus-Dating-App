@@ -52,10 +52,12 @@ export default function DatePage() {
     if (!me || !blindUser) return
     setBlindBusy(true)
     try {
-      const { data, error } = await supabase.from('matches')
-        .insert({ user_a: me, user_b: blindUser.id, status: 'released' })
-        .select('id').single()
-      if (!error && data) { localStorage.setItem('anlan_match_id', data.id); router.push('/match'); return }
+      const res = await fetch('/api/blind-date-start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: me, otherId: blindUser.id }),
+      })
+      const j = await res.json()
+      if (res.ok && j.matchId) { localStorage.setItem('anlan_match_id', j.matchId); router.push('/chat/' + j.matchId); return }
     } catch { /* fall through */ }
     setBlindBusy(false); showToast(zh ? '暂时无法开始，请重试' : 'Could not start — try again')
   }

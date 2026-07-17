@@ -218,9 +218,15 @@ function ProfileContent() {
                 <button className="btn btn-primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
                   {avatarUrl ? t.changePhoto : t.addPhoto}
                 </button>
-                <button className="btn btn-secondary" onClick={() => router.push('/feed')}>
-                  {avatarUrl ? t.looksGood : t.skip}
-                </button>
+                {avatarUrl ? (
+                  <button className="btn btn-secondary" onClick={() => router.push('/feed')}>
+                    {t.looksGood}
+                  </button>
+                ) : (
+                  <p className="hint" style={{ textAlign: 'center' }}>
+                    {zh ? '一张照片是必需的 —— 大家想看到真实的你。' : 'A photo is required — people want to see the real you.'}
+                  </p>
+                )}
               </div>
             </>
           )}

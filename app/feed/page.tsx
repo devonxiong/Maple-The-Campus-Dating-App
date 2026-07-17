@@ -269,6 +269,8 @@ export default function FeedPage() {
         ])
 
         if (!me) { router.push('/'); return }
+        // Photo is mandatory — send them back to the setup step until they add one.
+        if (!me.avatar_url) { router.push('/profile?setup=1'); return }
         setCurrentUser(me)
         setAllUsers(all ?? [])
         setAllUsersSnapshot(all ?? [])

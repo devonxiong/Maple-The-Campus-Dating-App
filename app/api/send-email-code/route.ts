@@ -37,21 +37,33 @@ export async function POST(req: NextRequest) {
   }
 
   const resend = new Resend(resendKey)
+  // A plain-text alternative + a reply-to on an authenticated domain reduce the
+  // odds of strict school filters quarantining the message as phishing.
+  const text =
+    `Your Maple verification code is ${code}\n\n` +
+    `Enter this code in Maple to verify your Claremont school email. It expires in 10 minutes.\n\n` +
+    `If you didn't request this, you can safely ignore this email.\n\n` +
+    `— Maple · https://www.maplemeet.ai`
   const { error } = await resend.emails.send({
     from: 'Maple <verify@maplemeet.ai>',
     to: [normalized],
-    subject: `${code} is your Maple verification code`,
+    replyTo: 'hello@maplemeet.ai',
+    subject: `Your Maple verification code: ${code}`,
+    text,
     html: `
-      <div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:420px;margin:0 auto;padding:40px 24px;background:#f8f7f4;">
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:440px;margin:0 auto;padding:40px 24px;background:#f8f1e6;">
         <div style="text-align:center;margin-bottom:24px;">
-          <h1 style="font-size:22px;font-weight:700;color:#111;margin:0 0 4px;">🍁 Maple</h1>
-          <p style="color:#9b9590;font-size:13px;margin:0;">For the one you've seen a thousand times.</p>
+          <h1 style="font-size:22px;font-weight:700;color:#241c12;margin:0 0 4px;">Maple</h1>
+          <p style="color:#a3927a;font-size:13px;margin:0;">Campus dating for the Claremont Colleges</p>
         </div>
-        <div style="background:white;border-radius:16px;padding:28px 24px;border:1px solid #e8e6e1;text-align:center;">
-          <p style="color:#6b6760;font-size:14px;margin:0 0 16px;">Your verification code is</p>
-          <p style="font-size:34px;font-weight:700;letter-spacing:8px;color:#111;margin:0 0 16px;">${code}</p>
-          <p style="color:#9b9590;font-size:12px;margin:0;">Expires in 10 minutes. If you didn't request this, ignore this email.</p>
+        <div style="background:#fffdf8;border-radius:16px;padding:28px 24px;border:1px solid #e7dcc9;text-align:center;">
+          <p style="color:#6d5d47;font-size:14px;margin:0 0 16px;">Your verification code is</p>
+          <p style="font-size:34px;font-weight:700;letter-spacing:8px;color:#241c12;margin:0 0 16px;">${code}</p>
+          <p style="color:#a3927a;font-size:12px;margin:0;">Expires in 10 minutes. If you didn't request this, you can ignore this email.</p>
         </div>
+        <p style="text-align:center;color:#c9bca6;font-size:11px;margin:18px 0 0;">
+          Maple · Claremont, CA · <a href="https://www.maplemeet.ai" style="color:#c9bca6;">maplemeet.ai</a>
+        </p>
       </div>
     `,
   })
