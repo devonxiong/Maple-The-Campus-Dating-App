@@ -59,6 +59,16 @@ function mutuallyCompatible(a: User, b: User): boolean {
   return prefMatchesGender(a.want_to_date, b.gender) && prefMatchesGender(b.want_to_date, a.gender)
 }
 
+/** Campus spots both users listed in their top spots (matched case-insensitively).
+ *  Preserves a's original casing for display. */
+function sharedSpots(a: User, b: User): string[] {
+  const mine = a.top_spots
+  const theirs = b.top_spots
+  if (!mine || !theirs) return []
+  const theirsLower = new Set(theirs.map(s => s.trim().toLowerCase()))
+  return mine.filter(s => theirsLower.has(s.trim().toLowerCase()))
+}
+
 /** Find shared Spotify artists and genres between two users. */
 function spotifyOverlap(a: User, b: User): { artists: string[]; genres: string[] } {
   const sa = a.spotify_interests
@@ -88,6 +98,7 @@ export function buildFeed(
     .filter((u) => !swipedIds.has(u.id))
     .map((u) => {
       const overlap = spotifyOverlap(currentUser, u)
+      const spots = sharedSpots(currentUser, u)
 
       let score = 0
       if (!tinyPool && !mutuallyCompatible(currentUser, u)) return null
@@ -109,6 +120,10 @@ export function buildFeed(
       // Same campus boost
       if (currentUser.campus && u.campus && currentUser.campus === u.campus) score += 1
 
+      // Shared favourite spot boost: +2 per shared spot (max 4) — core to a
+      // location-based app, and beta testers wanted match relevance surfaced.
+      score += Math.min(spots.length * 2, 4)
+
       const school = schoolFromEmail(u.email)
 
       return {
@@ -117,6 +132,7 @@ export function buildFeed(
         hint: buildHint(currentUser, u, overlap, distanceKm),
         school,
         distanceKm,
+        sharedSpot: spots[0],
       }
     })
     .filter((c): c is NonNullable<typeof c> => c !== null && c.score > 0)
@@ -142,5 +158,8 @@ function buildHint(
   if (distanceKm !== undefined && distanceKm < 0.8) return 'literally nearby rn 📍'
   if (distanceKm !== undefined && distanceKm < 2.0) return 'around the same area 📍'
   if (a.campus && b.campus && a.campus === b.campus) return 'y\'all are literally on the same campus'
-  return 'you two have probably crossed paths ngl'
+  // No real signal — show no hint rather than filler (testers disliked the
+  // generic "crossed paths" line appearing on everyone's card).
+  return ''
 }
+
