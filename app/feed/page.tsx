@@ -1126,9 +1126,11 @@ function AnonymousCard({ card, swipeLoading, onSwipe, onReport, t, lang }: {
   lang: Lang
 }) {
   const near = card.distanceKm !== undefined && card.distanceKm < 0.8 ? ` · ${t.nearby}` : ''
-  const sub = [card.school ? localizeSchool(card.school, lang) : '', card.user.gender].filter(Boolean).join(' · ') + near
+  const spot = card.sharedSpot ? `📍 ${card.sharedSpot}` : ''
+  const sub = [card.school ? localizeSchool(card.school, lang) : '', card.user.gender, spot].filter(Boolean).join(' · ') + near
   return (
     <PhotoCard card={card} swipeLoading={swipeLoading} onSwipe={onSwipe} onReport={onReport} t={t} lang={lang}
       sub={sub} hint={card.hint} />
   )
 }
+
