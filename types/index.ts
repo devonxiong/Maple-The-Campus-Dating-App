@@ -76,4 +76,6 @@ export interface FeedCard {
   hint: string
   school?: string
   distanceKm?: number
+  /** A campus spot both you and this person listed among your top spots. */
+  sharedSpot?: string
 }
